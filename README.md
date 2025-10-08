@@ -1,4 +1,4 @@
-# Tutor Inteligente - Educación Demo
+# Tutor Inteligente - Demo Educación
 
 Este proyecto incluye una app Flask con autenticación y un tutor RAG que integra PostgreSQL, Qdrant y Ollama.
 

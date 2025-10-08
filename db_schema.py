@@ -39,6 +39,33 @@ CREATE TABLE IF NOT EXISTS enrollments (
     progress REAL DEFAULT 0.0,
     last_interaction TIMESTAMP
 );
+
+-- Settings table (single row) for runtime configuration of the app/agents
+CREATE TABLE IF NOT EXISTS app_settings (
+    id INTEGER PRIMARY KEY DEFAULT 1,
+    llm_backend TEXT DEFAULT 'ollama',
+    llm_model TEXT DEFAULT 'gemma3:4b',
+    ollama_url TEXT DEFAULT 'http://localhost:11434',
+    openai_base_url TEXT DEFAULT 'https://api.openai.com',
+    qdrant_url TEXT DEFAULT 'http://localhost:6333',
+    qdrant_collection TEXT DEFAULT 'tutor_demo',
+    logging_enabled BOOLEAN DEFAULT TRUE,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Observability: metrics per chat call
+CREATE TABLE IF NOT EXISTS chat_metrics (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER,
+    subject_id INTEGER,
+    backend TEXT,
+    model TEXT,
+    prompt_tokens INTEGER,
+    completion_tokens INTEGER,
+    total_tokens INTEGER,
+    latency_ms INTEGER,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 """
 
 def init_db():
@@ -51,6 +78,24 @@ def init_db():
     )
     cur = conn.cursor()
     cur.execute(SCHEMA)
+    # --- Lightweight migrations for existing installations ---
+    # Ensure new column exists even if table was created before
+    cur.execute("ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS openai_base_url TEXT;")
+    cur.execute("ALTER TABLE app_settings ALTER COLUMN openai_base_url SET DEFAULT 'https://api.openai.com';")
+    # Ensure single default row in app_settings
+    cur.execute("SELECT COUNT(*) FROM app_settings;")
+    count = cur.fetchone()[0]
+    if count == 0:
+        cur.execute(
+            """
+            INSERT INTO app_settings (id, llm_backend, llm_model, ollama_url, openai_base_url, qdrant_url, qdrant_collection, logging_enabled)
+            VALUES (1, 'ollama', 'gemma3:4b', 'http://localhost:11434', 'https://api.openai.com', 'http://localhost:6333', 'tutor_demo', TRUE)
+            ON CONFLICT (id) DO NOTHING;
+            """
+        )
+    else:
+        # Backfill null value for existing row
+        cur.execute("UPDATE app_settings SET openai_base_url = COALESCE(openai_base_url, 'https://api.openai.com') WHERE id=1;")
     conn.commit()
     cur.close()
     conn.close()

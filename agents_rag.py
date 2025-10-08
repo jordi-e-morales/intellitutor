@@ -8,6 +8,9 @@ Agentes para demo de Tutor Inteligente con RAG y metadata.
 
 
 import psycopg2
+import time
+from typing import Optional
+import os
 from langchain_qdrant import Qdrant
 from langchain_ollama import OllamaEmbeddings
 from qdrant_client import QdrantClient
@@ -20,10 +23,60 @@ PG_DB = "tutor_db"
 PG_USER = "tutor_user"
 PG_PASSWORD = "tutor_pass"
 
-# Configuración Qdrant
+# Configuración Qdrant (valores por defecto; pueden ser sobrescritos por app_settings)
 QDRANT_URL = "http://localhost:6333"
 QDRANT_COLLECTION = "tutor_demo"
 EMBED_MODEL = "nomic-embed-text"
+
+def load_settings_from_db():
+    """Lee la fila de configuración desde app_settings (id=1)."""
+    try:
+        conn = psycopg2.connect(
+            host=PG_HOST,
+            port=PG_PORT,
+            dbname=PG_DB,
+            user=PG_USER,
+            password=PG_PASSWORD,
+        )
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT llm_backend, llm_model, ollama_url, qdrant_url, qdrant_collection, logging_enabled
+                FROM app_settings WHERE id=1
+                """
+            )
+            row = cur.fetchone()
+        conn.close()
+        if not row:
+            return {
+                'llm_backend': 'ollama',
+                'llm_model': 'gemma3:4b',
+                'ollama_url': 'http://localhost:11434',
+                'qdrant_url': QDRANT_URL,
+                'qdrant_collection': QDRANT_COLLECTION,
+                'logging_enabled': True,
+            }
+        keys = ['llm_backend','llm_model','ollama_url','qdrant_url','qdrant_collection','logging_enabled']
+        return dict(zip(keys, row))
+    except Exception:
+        # En caso de error, usar defaults
+        return {
+            'llm_backend': 'ollama',
+            'llm_model': 'gemma3:4b',
+            'ollama_url': 'http://localhost:11434',
+            'qdrant_url': QDRANT_URL,
+            'qdrant_collection': QDRANT_COLLECTION,
+            'logging_enabled': True,
+        }
+
+def estimate_tokens(text: str) -> int:
+    """Estimación simple de tokens si tiktoken no está disponible."""
+    try:
+        import tiktoken  # type: ignore
+        enc = tiktoken.get_encoding("cl100k_base")
+        return len(enc.encode(text or ""))
+    except Exception:
+        return max(1, len((text or "").split()))
 
 
 class StudentProfileAgent(Agent):
@@ -47,16 +100,40 @@ class StudentProfileAgent(Agent):
 
 
 class TutorAgent(Agent):
-    def call_llm_ollama(self, prompt, model="gemma3:4b"):
-        url = "http://localhost:11434/api/generate"
-        payload = {
-            "model": model,
-            "prompt": prompt,
-            "stream": False
-        }
-        response = requests.post(url, json=payload)
-        response.raise_for_status()
-        return response.json()["response"]
+    def call_llm(self, backend: str, prompt: str, model: str, base_url: str) -> str:
+        """
+        Llama al proveedor de LLM según el backend seleccionado.
+        - backend == 'ollama': usa /api/generate de Ollama
+        - backend == 'openai': usa /v1/chat/completions compatible con OpenAI
+        """
+        if backend == "ollama":
+            url = f"{base_url.rstrip('/')}/api/generate"
+            payload = {"model": model, "prompt": prompt, "stream": False}
+            resp = requests.post(url, json=payload, timeout=120)
+            resp.raise_for_status()
+            return resp.json().get("response", "")
+        elif backend == "openai":
+            base = base_url.rstrip('/') or "https://api.openai.com"
+            url = f"{base}/v1/chat/completions"
+            api_key = os.environ.get("OPENAI_API_KEY")
+            headers = {
+                "Authorization": f"Bearer {api_key}" if api_key else "",
+                "Content-Type": "application/json",
+            }
+            payload = {
+                "model": model,
+                "messages": [
+                    {"role": "system", "content": "Eres un tutor educativo útil."},
+                    {"role": "user", "content": prompt},
+                ],
+                "stream": False,
+            }
+            resp = requests.post(url, headers=headers, json=payload, timeout=120)
+            resp.raise_for_status()
+            data = resp.json()
+            return ((data.get("choices") or [{}])[0].get("message") or {}).get("content", "")
+        else:
+            raise ValueError(f"Backend LLM no soportado: {backend}")
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -82,10 +159,19 @@ class TutorAgent(Agent):
         return '\n\n'.join([f"Materia: {row[0]}\n{row[1]}" for row in rows])
 
     def answer_question(self, question, subject_ids, student_profile=None, llm_backend="ollama", llm_model="gemma3:4b", chat_history=None):
+        settings = load_settings_from_db()
+        backend = settings.get('llm_backend', llm_backend)
+        model = settings.get('llm_model', llm_model)
+        ollama_url = settings.get('ollama_url', 'http://localhost:11434')
+        openai_base_url = settings.get('openai_base_url', 'https://api.openai.com')
+        qdrant_url = settings.get('qdrant_url', QDRANT_URL)
+        collection = settings.get('qdrant_collection', QDRANT_COLLECTION)
+        logging_enabled = settings.get('logging_enabled', True)
+
         embeddings = OllamaEmbeddings(model=EMBED_MODEL)
-        client = QdrantClient(url=QDRANT_URL)
+        client = QdrantClient(url=qdrant_url)
         vectorstore = Qdrant(
-            collection_name=QDRANT_COLLECTION,
+            collection_name=collection,
             client=client,
             embeddings=embeddings,
         )
@@ -143,14 +229,54 @@ Perfil del estudiante:
 """
         print("\n[INFO] Prompt generado para el LLM:\n")
         print(prompt)
-        # Llamada al LLM según backend seleccionado
-        llm_response = None
-        if llm_backend == "ollama":
-            llm_response = self.call_llm_ollama(prompt, model=llm_model)
-            print("\n[INFO] Respuesta del LLM (Ollama):\n")
-            print(llm_response)
-        else:
-            print("[WARN] Backend LLM no soportado aún: ", llm_backend)
+        # Llamada al LLM según backend seleccionado (Ollama u OpenAI-compatible)
+        llm_response: Optional[str] = None
+        start = time.time()
+        try:
+            base = ollama_url if backend == "ollama" else openai_base_url
+            llm_response = self.call_llm(backend=backend, prompt=prompt, model=model, base_url=base)
+        except Exception as e:
+            print("[WARN] Error al invocar LLM:", e)
+            llm_response = ""
+        latency_ms = int((time.time() - start) * 1000)
+
+        # Métricas aproximadas de tokens
+        prompt_tokens = estimate_tokens(prompt)
+        completion_tokens = estimate_tokens(llm_response or "")
+        total_tokens = prompt_tokens + completion_tokens
+
+        # Persistir métrica
+        if logging_enabled:
+            try:
+                conn = psycopg2.connect(
+                    host=PG_HOST,
+                    port=PG_PORT,
+                    dbname=PG_DB,
+                    user=PG_USER,
+                    password=PG_PASSWORD,
+                )
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        INSERT INTO chat_metrics (user_id, subject_id, backend, model, prompt_tokens, completion_tokens, total_tokens, latency_ms)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                        """,
+                        (
+                            (student_profile or {}).get('id'),
+                            subject_ids[0] if subject_ids else None,
+                            backend,
+                            model,
+                            prompt_tokens,
+                            completion_tokens,
+                            total_tokens,
+                            latency_ms,
+                        ),
+                    )
+                    conn.commit()
+                conn.close()
+            except Exception as e:
+                print("[WARN] No se pudo registrar métrica:", e)
+
         return llm_response
 
     def run_crew(self, student_id, question, student_profile=None, llm_backend="ollama", llm_model="gemma3:4b", chat_history=None):

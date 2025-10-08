@@ -41,6 +41,42 @@ Este proyecto incluye una app Flask con autenticación y un tutor RAG que integr
    python .\populate_db.py
    ```
 
+#### Alternativa Linux / macOS (sin PowerShell)
+
+Si no deseas usar `bootstrap_db.ps1`, puedes ejecutar los mismos pasos con `docker exec` y `psql` directamente:
+
+```bash
+# 1) Crear contenedor de Postgres (si no existe)
+docker run -d --name pg -e POSTGRES_PASSWORD=postgres -p 5432:5432 postgres:15
+
+# 2) Crear usuario si no existe (idempotente)
+docker exec -i pg psql -U postgres -v ON_ERROR_STOP=1 -c "DO $$
+BEGIN
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'tutor_user') THEN
+    CREATE ROLE tutor_user LOGIN PASSWORD 'tutor_pass';
+  END IF;
+END$$;"
+
+# 3) Crear base de datos si no existe (idempotente)
+docker exec -i pg psql -U postgres -v ON_ERROR_STOP=1 -c "DO $$
+BEGIN
+  IF NOT EXISTS (SELECT FROM pg_database WHERE datname = 'tutor_db') THEN
+    CREATE DATABASE tutor_db OWNER tutor_user;
+  END IF;
+END$$;"
+
+# 4) Conceder privilegios (seguro de repetir)
+docker exec -i pg psql -U postgres -v ON_ERROR_STOP=1 -d postgres -c "GRANT ALL PRIVILEGES ON DATABASE \"tutor_db\" TO tutor_user;"
+
+# 5) Inicializar tablas y datos demo desde tu host
+python ./db_schema.py
+python ./populate_db.py
+```
+
+Notas:
+- Las credenciales por defecto que usa la app son `host=localhost`, `port=5432`, `db=tutor_db`, `user=tutor_user`, `password=tutor_pass`.
+- Asegúrate de que el puerto 5432 no esté ocupado y que el contenedor `pg` esté en ejecución (`docker ps`).
+
 ### Qdrant (Vector DB)
 
 Levantar Qdrant:

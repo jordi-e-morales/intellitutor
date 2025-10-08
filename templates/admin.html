@@ -1,0 +1,87 @@
+{% extends 'base.html' %}
+{% block title %}Admin - Configuración y Métricas{% endblock %}
+{% block content %}
+<div class="container mt-4">
+  <h2>Administración</h2>
+  <p class="text-muted">Configura el backend de LLM y revisa métricas de uso.</p>
+
+  <div class="row">
+    <div class="col-md-6">
+      <h4>Configuración</h4>
+      <form method="post">
+        <div class="mb-3">
+          <label class="form-label">LLM Backend</label>
+          <select class="form-select" name="llm_backend">
+            <option value="ollama" {% if settings.llm_backend=='ollama' %}selected{% endif %}>Ollama</option>
+            <option value="openai" {% if settings.llm_backend=='openai' %}selected{% endif %}>OpenAI-compatible</option>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">LLM Model</label>
+          <input class="form-control" type="text" name="llm_model" value="{{ settings.llm_model }}" placeholder="gemma3:4b" />
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Ollama URL</label>
+          <input class="form-control" type="text" name="ollama_url" value="{{ settings.ollama_url }}" placeholder="http://localhost:11434" />
+        </div>
+        <div class="mb-3">
+          <label class="form-label">OpenAI Base URL (compat)</label>
+          <input class="form-control" type="text" name="openai_base_url" value="{{ settings.openai_base_url }}" placeholder="https://api.openai.com" />
+          <div class="form-text">Ej.: http://localhost:8000 para vLLM u otros servidores locales compatibles.</div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Qdrant URL</label>
+          <input class="form-control" type="text" name="qdrant_url" value="{{ settings.qdrant_url }}" placeholder="http://localhost:6333" />
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Qdrant Collection</label>
+          <input class="form-control" type="text" name="qdrant_collection" value="{{ settings.qdrant_collection }}" placeholder="tutor_demo" />
+        </div>
+        <div class="form-check mb-3">
+          <input class="form-check-input" type="checkbox" name="logging_enabled" id="logging_enabled" {% if settings.logging_enabled %}checked{% endif %} />
+          <label class="form-check-label" for="logging_enabled">Habilitar registro de métricas</label>
+        </div>
+        <button type="submit" class="btn btn-primary">Guardar</button>
+      </form>
+    </div>
+
+    <div class="col-md-6">
+      <h4>Métricas recientes</h4>
+      <div class="table-responsive" style="max-height: 420px; overflow:auto;">
+        <table class="table table-sm table-striped align-middle">
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>User</th>
+              <th>Subject</th>
+              <th>Backend</th>
+              <th>Modelo</th>
+              <th>Prompt</th>
+              <th>Compl</th>
+              <th>Total</th>
+              <th>Latency (ms)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for m in metrics %}
+            <tr>
+              <td>{{ m[9] }}</td>
+              <td>{{ m[1] }}</td>
+              <td>{{ m[2] }}</td>
+              <td>{{ m[3] }}</td>
+              <td>{{ m[4] }}</td>
+              <td>{{ m[5] }}</td>
+              <td>{{ m[6] }}</td>
+              <td>{{ m[7] }}</td>
+              <td>{{ m[8] }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="9" class="text-muted">Sin datos aún.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

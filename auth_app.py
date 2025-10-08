@@ -24,6 +24,35 @@ PG_CONFIG = {
 def get_db_connection():
     return psycopg2.connect(**PG_CONFIG)
 
+def load_settings():
+    """Fetch app settings (single-row table)."""
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT llm_backend, llm_model, ollama_url, openai_base_url, qdrant_url, qdrant_collection, logging_enabled FROM app_settings WHERE id=1;")
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+    if not row:
+        return {
+            'llm_backend': 'ollama',
+            'llm_model': 'gemma3:4b',
+            'ollama_url': 'http://localhost:11434',
+            'openai_base_url': 'https://api.openai.com',
+            'qdrant_url': 'http://localhost:6333',
+            'qdrant_collection': 'tutor_demo',
+            'logging_enabled': True,
+        }
+    keys = ['llm_backend','llm_model','ollama_url','openai_base_url','qdrant_url','qdrant_collection','logging_enabled']
+    return dict(zip(keys, row))
+
+def is_admin():
+    """Simple admin check using ADMIN_EMAILS env (comma-separated)."""
+    emails = os.environ.get('ADMIN_EMAILS')
+    if not emails:
+        return False
+    allowed = {e.strip().lower() for e in emails.split(',') if e.strip()}
+    return session.get('user_email','').lower() in allowed
+
 def verify_user(email, password):
     """Verifica las credenciales del usuario"""
     conn = get_db_connection()
@@ -113,6 +142,59 @@ def dashboard():
     return render_template('dashboard.html', 
                          user=session, 
                          subjects=subjects)
+
+@app.route('/admin', methods=['GET', 'POST'])
+def admin_page():
+    if 'user_id' not in session:
+        return redirect(url_for('index'))
+    if not is_admin():
+        return redirect(url_for('dashboard'))
+
+    if request.method == 'POST':
+        data = {
+            'llm_backend': request.form.get('llm_backend','ollama'),
+            'llm_model': request.form.get('llm_model','gemma3:4b'),
+            'ollama_url': request.form.get('ollama_url','http://localhost:11434'),
+            'openai_base_url': request.form.get('openai_base_url','https://api.openai.com'),
+            'qdrant_url': request.form.get('qdrant_url','http://localhost:6333'),
+            'qdrant_collection': request.form.get('qdrant_collection','tutor_demo'),
+            'logging_enabled': True if request.form.get('logging_enabled') == 'on' else False,
+        }
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute(
+            """
+            UPDATE app_settings SET
+              llm_backend=%s,
+              llm_model=%s,
+              ollama_url=%s,
+              openai_base_url=%s,
+              qdrant_url=%s,
+              qdrant_collection=%s,
+              logging_enabled=%s,
+              updated_at=NOW()
+            WHERE id=1
+            """,
+            (data['llm_backend'], data['llm_model'], data['ollama_url'], data['openai_base_url'], data['qdrant_url'], data['qdrant_collection'], data['logging_enabled'])
+        )
+        conn.commit()
+        cur.close()
+        conn.close()
+
+    # Reload settings and metrics
+    settings = load_settings()
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT id, user_id, subject_id, backend, model, prompt_tokens, completion_tokens, total_tokens, latency_ms, created_at
+        FROM chat_metrics
+        ORDER BY created_at DESC
+        LIMIT 50
+    """)
+    metrics = cur.fetchall()
+    cur.close()
+    conn.close()
+    return render_template('admin.html', settings=settings, metrics=metrics, user=session)
 
 @app.route('/chat/<int:subject_id>')
 def chat(subject_id):

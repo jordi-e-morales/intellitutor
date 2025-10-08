@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto py-6 px-4">
+    <div class="flex items-center justify-between mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900">{{ subject_name }}</h1>
+            <p class="text-gray-600">Tutor Virtual</p>
+        </div>
+        <a href="{{ url_for('dashboard') }}" 
+           class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition">
+            <i class="fas fa-arrow-left mr-2"></i>Volver
+        </a>
+    </div>
+
+    <!-- Chat container -->
+    <div id="chat-container" class="bg-white rounded-xl shadow-lg flex flex-col h-[80vh]">
+        <!-- Messages -->
+        <div id="messages" class="flex-1 overflow-y-auto p-4 space-y-3">
+            <!-- Messages appended here -->
+        </div>
+
+        <!-- Input -->
+        <div class="border-t p-3">
+            <form id="chat-form" class="flex gap-2" autocomplete="off">
+                <input type="hidden" id="subject_id" value="{{ subject_id }}" />
+                <input id="message" type="text" class="flex-1 px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Escribe tu pregunta..." />
+                <button type="submit" class="px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+const messagesEl = document.getElementById('messages');
+const formEl = document.getElementById('chat-form');
+const inputEl = document.getElementById('message');
+const subjectId = document.getElementById('subject_id').value;
+
+// Maintain a small chat history to send as context
+const chatHistory = [];
+
+function appendMessage(role, text) {
+  const wrapper = document.createElement('div');
+  const base = 'max-w-[80%] px-4 py-3 rounded-lg shadow-sm';
+  if (role === 'user') {
+    wrapper.className = 'w-full flex justify-end';
+    wrapper.innerHTML = `<div class="${base} bg-indigo-50">${escapeHtml(text)}</div>`;
+  } else {
+    wrapper.className = 'w-full flex justify-start';
+    wrapper.innerHTML = `<div class="${base} bg-gray-100">${escapeHtml(text)}</div>`;
+  }
+  messagesEl.appendChild(wrapper);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+function escapeHtml(str) {
+  const p = document.createElement('p');
+  p.innerText = str;
+  return p.innerHTML;
+}
+
+formEl.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const msg = (inputEl.value || '').trim();
+  if (!msg) return;
+
+  // UI: show user message
+  appendMessage('user', msg);
+  inputEl.value = '';
+
+  // Build minimal history (last 5)
+  const historyToSend = chatHistory.slice(-5);
+
+  // Send to backend
+  try {
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: msg,
+        subject_id: Number(subjectId),
+        chat_history: historyToSend
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      appendMessage('tutor', data.error || 'Error del servidor');
+      return;
+    }
+    const reply = data.reply || '';
+    appendMessage('tutor', reply);
+    chatHistory.push({ user: msg, tutor: reply });
+  } catch (err) {
+    appendMessage('tutor', 'No se pudo contactar al servidor.');
+  }
+});
+</script>
+{% endblock %}

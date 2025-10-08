@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="700" viewBox="0 0 1100 700">
+  <defs>
+    <style>
+      .box { fill:#ffffff; stroke:#1f2937; stroke-width:2; rx:10; ry:10; }
+      .title { font: 700 18px 'Segoe UI', Arial; fill:#111827; }
+      .text { font: 400 14px 'Segoe UI', Arial; fill:#111827; }
+      .group-title { font:700 16px 'Segoe UI', Arial; fill:#374151; }
+      .arrow { stroke:#2563eb; stroke-width:2.5; fill:none; marker-end:url(#arrowhead); }
+      .arrow2 { stroke:#059669; stroke-width:2.5; fill:none; marker-end:url(#arrowhead2); }
+      .note { font: 400 12px 'Segoe UI', Arial; fill:#6b7280; }
+      .pill { fill:#eef2ff; stroke:#6366f1; stroke-width:1.5; rx:14; ry:14; }
+    </style>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#2563eb"/>
+    </marker>
+    <marker id="arrowhead2" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#059669"/>
+    </marker>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+
+  <!-- Section titles -->
+  <text x="70" y="40" class="group-title">UI</text>
+  <text x="430" y="40" class="group-title">CrewAI Agents</text>
+  <text x="860" y="40" class="group-title">Infrastructure</text>
+
+  <!-- UI Group -->
+  <g filter="url(#shadow)">
+    <rect x="40" y="60" width="260" height="180" class="box"/>
+    <text x="60" y="95" class="title">Interfaz Web (Chat)</text>
+    <g>
+      <rect x="60" y="115" width="220" height="30" class="pill"/>
+      <text x="70" y="135" class="text">Usuario/Estudiante</text>
+    </g>
+    <text x="60" y="165" class="note">HTTP: /, /login, /dashboard, /api/chat</text>
+    <text x="60" y="188" class="note">Flask UI + sesión</text>
+  </g>
+
+  <!-- Agents Group -->
+  <g filter="url(#shadow)">
+    <rect x="350" y="60" width="420" height="270" class="box"/>
+    <text x="370" y="95" class="title">CrewAI Orquestación</text>
+
+    <!-- StudentProfileAgent -->
+    <rect x="370" y="120" width="180" height="80" class="box"/>
+    <text x="380" y="145" class="text">StudentProfileAgent</text>
+    <text x="380" y="170" class="note">Obtiene subject_ids desde DB</text>
+
+    <!-- TutorAgent -->
+    <rect x="570" y="120" width="180" height="160" class="box"/>
+    <text x="580" y="145" class="text">TutorAgent (RAG)</text>
+    <text x="580" y="170" class="note">Consulta Qdrant (filtrado por</text>
+    <text x="580" y="188" class="note">subject_id) y llama LLM via Ollama</text>
+    <text x="580" y="206" class="note">Fusiona Contexto + Perfil</text>
+  </g>
+
+  <!-- Infrastructure Group -->
+  <g filter="url(#shadow)">
+    <rect x="810" y="60" width="260" height="420" class="box"/>
+    <text x="830" y="95" class="title">Servicios</text>
+
+    <rect x="830" y="120" width="220" height="80" class="box"/>
+    <text x="840" y="145" class="text">PostgreSQL</text>
+    <text x="840" y="170" class="note">DB: tutor_db | User: tutor_user</text>
+
+    <rect x="830" y="220" width="220" height="80" class="box"/>
+    <text x="840" y="245" class="text">Qdrant Vector DB</text>
+    <text x="840" y="270" class="note">Colección: tutor_demo</text>
+
+    <rect x="830" y="320" width="220" height="120" class="box"/>
+    <text x="840" y="345" class="text">Ollama</text>
+    <text x="840" y="370" class="note">LLM: gemma3:4b</text>
+    <text x="840" y="390" class="note">Embeddings: nomic-embed-text</text>
+  </g>
+
+  <!-- Arrows: UI -> Agents -> Services and back -->
+  <!-- User to Crew (request) -->
+  <path class="arrow" d="M300,150 C330,150 340,150 350,160"/>
+  <text x="305" y="140" class="note">Mensaje/Consulta</text>
+
+  <!-- Crew back to UI (response) -->
+  <path class="arrow2" d="M350,210 C330,230 320,235 300,235"/>
+  <text x="305" y="255" class="note">Respuesta personalizada</text>
+
+  <!-- StudentProfileAgent -> Postgres -->
+  <path class="arrow" d="M460,200 C500,220 780,160 830,160"/>
+  <text x="600" y="150" class="note">SELECT subject_ids</text>
+
+  <!-- TutorAgent -> Qdrant -->
+  <path class="arrow" d="M750,200 C790,220 810,260 830,260"/>
+  <text x="690" y="235" class="note">Similarity search (k=5, filter)</text>
+
+  <!-- TutorAgent -> Ollama (LLM) -->
+  <path class="arrow" d="M750,240 C790,300 810,360 830,360"/>
+  <text x="675" y="325" class="note">Prompt + contexto</text>
+
+  <!-- Ollama back to TutorAgent -->
+  <path class="arrow2" d="M830,400 C810,420 790,340 750,280"/>
+  <text x="760" y="380" class="note">Generación</text>
+
+  <!-- Legend -->
+  <g>
+    <rect x="40" y="560" width="1020" height="110" class="box"/>
+    <text x="60" y="590" class="title">Leyenda</text>
+    <circle cx="70" cy="615" r="6" fill="#2563eb"/>
+    <text x="85" y="620" class="text">Flujo de solicitud (consulta, lecturas)</text>
+    <circle cx="380" cy="615" r="6" fill="#059669"/>
+    <text x="395" y="620" class="text">Flujo de respuesta (generación, UI)</text>
+    <text x="60" y="645" class="note">Basado en `auth_app.py`, `agents_rag.py`, PostgreSQL, Qdrant y Ollama.</text>
+  </g>
+</svg>

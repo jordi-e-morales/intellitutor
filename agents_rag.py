@@ -180,18 +180,41 @@ class StudentProfileAgent(Agent):
 
 
 class TutorAgent(Agent):
-    def call_llm(self, backend: str, prompt: str, model: str, base_url: str) -> str:
+    def build_messages(self, system_prompt: str, user_message: str, chat_history: list = None) -> list:
         """
-        Llama al proveedor de LLM según el backend seleccionado.
-        - backend == 'ollama': usa /api/generate de Ollama
+        Construye la lista de mensajes para la API de chat con roles apropiados.
+        """
+        messages = [{"role": "system", "content": system_prompt}]
+
+        # Agregar historial de conversación con roles apropiados
+        if chat_history:
+            for msg in chat_history[-10:]:  # Últimas 10 interacciones
+                if msg.get('user'):
+                    messages.append({"role": "user", "content": msg['user']})
+                if msg.get('tutor'):
+                    messages.append({"role": "assistant", "content": msg['tutor']})
+
+        # Agregar el mensaje actual del usuario
+        messages.append({"role": "user", "content": user_message})
+
+        return messages
+
+    def call_llm(self, backend: str, messages: list, model: str, base_url: str) -> str:
+        """
+        Llama al proveedor de LLM usando la API de chat con mensajes estructurados.
+        - backend == 'ollama': usa /api/chat de Ollama
         - backend == 'openai': usa /v1/chat/completions compatible con OpenAI
         """
         if backend == "ollama":
-            url = f"{base_url.rstrip('/')}/api/generate"
-            payload = {"model": model, "prompt": prompt, "stream": False}
+            url = f"{base_url.rstrip('/')}/api/chat"
+            payload = {
+                "model": model,
+                "messages": messages,
+                "stream": False
+            }
             resp = requests.post(url, json=payload, timeout=120)
             resp.raise_for_status()
-            return resp.json().get("response", "")
+            return resp.json().get("message", {}).get("content", "")
         elif backend == "openai":
             base = base_url.rstrip('/') or "https://api.openai.com"
             url = f"{base}/v1/chat/completions"
@@ -202,10 +225,7 @@ class TutorAgent(Agent):
             }
             payload = {
                 "model": model,
-                "messages": [
-                    {"role": "system", "content": "Eres un tutor educativo para estudiantes universitarios en México. Comunícate en español mexicano de manera clara y accesible."},
-                    {"role": "user", "content": prompt},
-                ],
+                "messages": messages,
                 "stream": False,
             }
             resp = requests.post(url, headers=headers, json=payload, timeout=120)
@@ -215,24 +235,28 @@ class TutorAgent(Agent):
         else:
             raise ValueError(f"Backend LLM no soportado: {backend}")
 
-    def stream_llm(self, backend: str, prompt: str, model: str, base_url: str):
+    def stream_llm(self, backend: str, messages: list, model: str, base_url: str):
         """
-        Generator that streams LLM response chunks.
+        Generator that streams LLM response chunks using chat API.
         Yields text chunks as they arrive from the LLM.
         """
         import json
 
         if backend == "ollama":
-            url = f"{base_url.rstrip('/')}/api/generate"
-            payload = {"model": model, "prompt": prompt, "stream": True}
+            url = f"{base_url.rstrip('/')}/api/chat"
+            payload = {
+                "model": model,
+                "messages": messages,
+                "stream": True
+            }
             with requests.post(url, json=payload, timeout=120, stream=True) as resp:
                 resp.raise_for_status()
                 for line in resp.iter_lines():
                     if line:
                         try:
                             chunk = json.loads(line)
-                            if "response" in chunk:
-                                yield chunk["response"]
+                            if "message" in chunk and "content" in chunk["message"]:
+                                yield chunk["message"]["content"]
                             if chunk.get("done", False):
                                 break
                         except json.JSONDecodeError:
@@ -248,10 +272,7 @@ class TutorAgent(Agent):
             }
             payload = {
                 "model": model,
-                "messages": [
-                    {"role": "system", "content": "Eres un tutor educativo para estudiantes universitarios en México. Comunícate en español mexicano de manera clara y accesible."},
-                    {"role": "user", "content": prompt},
-                ],
+                "messages": messages,
                 "stream": True,
             }
             with requests.post(url, headers=headers, json=payload, timeout=120, stream=True) as resp:
@@ -293,6 +314,62 @@ class TutorAgent(Agent):
         finally:
             release_db_connection(conn)
 
+    def get_system_prompt(self, subject_context: str, rag_context: str, student_profile) -> str:
+        """
+        Construye el prompt del sistema con contexto de materia, RAG y perfil del estudiante.
+        """
+        return f"""Eres un tutor inteligente para estudiantes universitarios en México. Tu objetivo es ayudar al estudiante de manera personalizada y contextual, siguiendo estas reglas:
+
+- Comunicación: Utiliza español mexicano natural y accesible. Usa "tú" en lugar de "usted" para crear un ambiente de confianza. Evita modismos que no sean comunes en México.
+- Explicaciones personalizadas: Adapta el nivel y estilo de explicación según el perfil y la pregunta del estudiante. Cuando sea útil, incluye ejemplos relacionados con el contexto mexicano (empresas, instituciones, cultura o situaciones locales).
+- Respuestas contextuales: Limítate a responder solo con base en el contenido relevante del curso proporcionado.
+- Generación de pistas: Si el estudiante lo solicita o parece atorado, ofrece pistas antes que respuestas directas.
+- Clarificación de conceptos: Si el estudiante pide aclaraciones, desglosa los conceptos y usa ejemplos claros.
+- Retroalimentación automática: Si el estudiante responde una pregunta o ejercicio, proporciona retroalimentación constructiva y sugerencias de mejora.
+- Si el alumno pide recursos adicionales, sugiere materiales complementarios relacionados con la materia.
+- Si el alumno quiere preguntas tipo quiz o examen, genera preguntas con opciones múltiples, espera la respuesta y proporciona retroalimentación.
+- Diagramas y visualizaciones: Cuando necesites crear diagramas, flujos, gráficos o cualquier visualización, usa SIEMPRE el formato Mermaid dentro de un bloque de código con el lenguaje "mermaid". Tipos soportados: flowchart, sequenceDiagram, classDiagram, stateDiagram, erDiagram, gantt, pie.
+  REGLAS CRÍTICAS DE SINTAXIS MERMAID (para evitar errores):
+  - Usa flowchart TD o flowchart LR (no "graph")
+  - Los IDs de nodos deben ser alfanuméricos simples sin espacios ni caracteres especiales (A, B1, nodo1)
+  - SIEMPRE encierra el texto de los nodos entre comillas dobles si contiene caracteres especiales: A["Texto con (paréntesis)"]
+  - Para nodos rectangulares: A["texto"]
+  - Para nodos redondeados: A("texto")
+  - Para nodos tipo rombo (decisión): A{{"texto"}}
+  - Flechas válidas: -->, --->, -.->; (punteada), ==> (gruesa)
+  - Para texto en flechas: A -->|"texto"| B o A -- "texto" --> B
+  - En subgraph, usa: subgraph nombre["Título con espacios"]
+  - NUNCA uses caracteres especiales sin comillas: ( ) [ ] {{ }} | < > & en textos de nodos
+  - Evita saltos de línea dentro de un nodo; usa <br> si necesitas múltiples líneas
+  - Ejemplo correcto:
+    ```mermaid
+    flowchart TD
+      A["Inicio del proceso"] --> B{{"¿Es válido?"}}
+      B -->|"Sí"| C["Continuar"]
+      B -->|"No"| D["Revisar"]
+    ```
+- Fórmulas matemáticas: SIEMPRE usa notación LaTeX para cualquier expresión matemática, nunca uses formato markdown. Usa $...$ para fórmulas en línea (ejemplo: $x^2 + y^2 = r^2$) y $$...$$ para fórmulas en bloque centradas. Ejemplos de notación LaTeX:
+  - Fracciones: $\\frac{{a}}{{b}}$
+  - Raíces: $\\sqrt{{x}}$, $\\sqrt[n]{{x}}$
+  - Exponentes y subíndices: $x^2$, $x_i$, $x_i^2$
+  - Sumatorias: $\\sum_{{i=1}}^{{n}} x_i$
+  - Integrales: $\\int_{{a}}^{{b}} f(x) dx$
+  - Límites: $\\lim_{{x \\to \\infty}} f(x)$
+  - Matrices: usa entornos como \\begin{{pmatrix}}...\\end{{pmatrix}}
+  - Letras griegas: $\\alpha$, $\\beta$, $\\gamma$, $\\theta$, $\\pi$
+  - Operadores: $\\times$, $\\div$, $\\pm$, $\\neq$, $\\leq$, $\\geq$, $\\approx$
+
+Contexto de la materia:
+{subject_context}
+
+Material de referencia (fragmentos relevantes del curso):
+{rag_context}
+
+Perfil del estudiante:
+{student_profile if student_profile else 'No disponible'}
+
+Recuerda: Mantén el contexto de la conversación y haz referencia a mensajes anteriores cuando sea relevante."""
+
     def answer_question(self, question, subject_ids, student_profile=None, llm_backend="ollama", llm_model="gemma3:4b", chat_history=None):
         settings = load_settings_from_db()  # Uses cached settings (60s TTL)
         backend = settings.get('llm_backend', llm_backend)
@@ -331,56 +408,36 @@ class TutorAgent(Agent):
         subject_context = self.get_subject_context(subject_ids)
         print("[DEBUG] subject_context:\n", subject_context)
 
-        # Historial de conversación
-        history_prompt = self.build_history_prompt(chat_history)
-        print("[DEBUG] history_prompt:\n", history_prompt)
-
-        # Construir el prompt personalizado para el LLM
-        context = "\n---\n".join([doc.page_content for doc in results])
-        print("[DEBUG] context (chunks relevantes):\n", context)
+        # Construir contexto RAG
+        rag_context = "\n---\n".join([doc.page_content for doc in results])
+        print("[DEBUG] rag_context (chunks relevantes):\n", rag_context)
         print("[DEBUG] student_profile:\n", student_profile)
         print("[DEBUG] question:\n", question)
-        prompt = f"""
-Eres un tutor inteligente para estudiantes universitarios en México. Tu objetivo es ayudar al estudiante de manera personalizada y contextual, siguiendo estas reglas:
+        print("[DEBUG] chat_history length:", len(chat_history) if chat_history else 0)
 
-- Comunicación: Utiliza español mexicano natural y accesible. Usa "tú" en lugar de "usted" para crear un ambiente de confianza. Evita modismos que no sean comunes en México.
-- Explicaciones personalizadas: Adapta el nivel y estilo de explicación según el perfil y la pregunta del estudiante. Cuando sea útil, incluye ejemplos relacionados con el contexto mexicano (empresas, instituciones, cultura o situaciones locales).
-- Respuestas contextuales: Limítate a responder solo con base en el contenido relevante del curso proporcionado.
-- Generación de pistas: Si el estudiante lo solicita o parece atorado, ofrece pistas antes que respuestas directas.
-- Clarificación de conceptos: Si el estudiante pide aclaraciones, desglosa los conceptos y usa ejemplos claros.
-- Retroalimentación automática: Si el estudiante responde una pregunta o ejercicio, proporciona retroalimentación constructiva y sugerencias de mejora.
-- Si el alumno pide recursos adicionales, sugiere materiales complementarios relacionados con la materia.
-- Si el alumno quiere preguntas tipo quiz o examen, genera preguntas con opciones múltiples, espera la respuesta y proporciona retroalimentación.
-- Diagramas y visualizaciones: Cuando necesites crear diagramas, flujos, gráficos o cualquier visualización, usa SIEMPRE el formato Mermaid dentro de un bloque de código con el lenguaje "mermaid". Ejemplos de tipos de diagramas soportados: flowchart, sequenceDiagram, classDiagram, stateDiagram, erDiagram, gantt, pie.
-- Fórmulas matemáticas: Cuando necesites escribir ecuaciones o fórmulas matemáticas, usa formato LaTeX con delimitadores $...$ para fórmulas en línea y $$...$$ para fórmulas en bloque.
+        # Construir el prompt del sistema
+        system_prompt = self.get_system_prompt(subject_context, rag_context, student_profile)
 
-{history_prompt}Contexto de la materia:
-{subject_context}
+        # Construir mensajes con historial de conversación
+        messages = self.build_messages(system_prompt, question, chat_history)
+        print(f"\n[INFO] Total de mensajes para el LLM: {len(messages)}")
+        for i, msg in enumerate(messages):
+            print(f"  [{i}] {msg['role']}: {msg['content'][:100]}...")
 
-Material de referencia (fragmentos relevantes):
-{context}
-
-Pregunta del estudiante:
-{question}
-
-Perfil del estudiante:
-{student_profile if student_profile else 'No disponible'}
-"""
-        print("\n[INFO] Prompt generado para el LLM:\n")
-        print(prompt)
-        # Llamada al LLM según backend seleccionado (Ollama u OpenAI-compatible)
+        # Llamada al LLM con mensajes estructurados
         llm_response: Optional[str] = None
         start = time.time()
         try:
             base = ollama_url if backend == "ollama" else openai_base_url
-            llm_response = self.call_llm(backend=backend, prompt=prompt, model=model, base_url=base)
+            llm_response = self.call_llm(backend=backend, messages=messages, model=model, base_url=base)
         except Exception as e:
             print("[WARN] Error al invocar LLM:", e)
             llm_response = ""
         latency_ms = int((time.time() - start) * 1000)
 
-        # Métricas aproximadas de tokens
-        prompt_tokens = estimate_tokens(prompt)
+        # Métricas aproximadas de tokens (estimación basada en todos los mensajes)
+        total_prompt_text = " ".join([msg['content'] for msg in messages])
+        prompt_tokens = estimate_tokens(total_prompt_text)
         completion_tokens = estimate_tokens(llm_response or "")
         total_tokens = prompt_tokens + completion_tokens
 
@@ -447,43 +504,21 @@ Perfil del estudiante:
 
         # Get context
         subject_context = self.get_subject_context(subject_ids)
-        history_prompt = self.build_history_prompt(chat_history)
-        context = "\n---\n".join([doc.page_content for doc in results])
+        rag_context = "\n---\n".join([doc.page_content for doc in results])
 
-        # Build prompt
-        prompt = f"""
-Eres un tutor inteligente para estudiantes universitarios en México. Tu objetivo es ayudar al estudiante de manera personalizada y contextual, siguiendo estas reglas:
+        # Build system prompt and messages with proper roles
+        system_prompt = self.get_system_prompt(subject_context, rag_context, student_profile)
+        messages = self.build_messages(system_prompt, question, chat_history)
 
-- Comunicación: Utiliza español mexicano natural y accesible. Usa "tú" en lugar de "usted" para crear un ambiente de confianza. Evita modismos que no sean comunes en México.
-- Explicaciones personalizadas: Adapta el nivel y estilo de explicación según el perfil y la pregunta del estudiante. Cuando sea útil, incluye ejemplos relacionados con el contexto mexicano (empresas, instituciones, cultura o situaciones locales).
-- Respuestas contextuales: Limítate a responder solo con base en el contenido relevante del curso proporcionado.
-- Generación de pistas: Si el estudiante lo solicita o parece atorado, ofrece pistas antes que respuestas directas.
-- Clarificación de conceptos: Si el estudiante pide aclaraciones, desglosa los conceptos y usa ejemplos claros.
-- Retroalimentación automática: Si el estudiante responde una pregunta o ejercicio, proporciona retroalimentación constructiva y sugerencias de mejora.
-- Si el alumno pide recursos adicionales, sugiere materiales complementarios relacionados con la materia.
-- Si el alumno quiere preguntas tipo quiz o examen, genera preguntas con opciones múltiples, espera la respuesta y proporciona retroalimentación.
-- Diagramas y visualizaciones: Cuando necesites crear diagramas, flujos, gráficos o cualquier visualización, usa SIEMPRE el formato Mermaid dentro de un bloque de código con el lenguaje "mermaid". Ejemplos de tipos de diagramas soportados: flowchart, sequenceDiagram, classDiagram, stateDiagram, erDiagram, gantt, pie.
-- Fórmulas matemáticas: Cuando necesites escribir ecuaciones o fórmulas matemáticas, usa formato LaTeX con delimitadores $...$ para fórmulas en línea y $$...$$ para fórmulas en bloque.
+        print(f"\n[INFO] Streaming con {len(messages)} mensajes")
 
-{history_prompt}Contexto de la materia:
-{subject_context}
-
-Material de referencia (fragmentos relevantes):
-{context}
-
-Pregunta del estudiante:
-{question}
-
-Perfil del estudiante:
-{student_profile if student_profile else 'No disponible'}
-"""
         # Stream the response
         base = ollama_url if backend == "ollama" else openai_base_url
         full_response = []
         start = time.time()
 
         try:
-            for chunk in self.stream_llm(backend=backend, prompt=prompt, model=model, base_url=base):
+            for chunk in self.stream_llm(backend=backend, messages=messages, model=model, base_url=base):
                 full_response.append(chunk)
                 yield chunk
         except Exception as e:
@@ -496,7 +531,8 @@ Perfil del estudiante:
         if logging_enabled:
             try:
                 complete_response = "".join(full_response)
-                prompt_tokens = estimate_tokens(prompt)
+                total_prompt_text = " ".join([msg['content'] for msg in messages])
+                prompt_tokens = estimate_tokens(total_prompt_text)
                 completion_tokens = estimate_tokens(complete_response)
                 total_tokens = prompt_tokens + completion_tokens
 
@@ -571,13 +607,6 @@ Perfil del estudiante:
         )
         return respuesta
 
-    def build_history_prompt(self, chat_history):
-        if not chat_history:
-            return ""
-        history = ""
-        for msg in chat_history[-5:]:  # últimas 5 interacciones
-            history += f"Tú: {msg['user']}\nTutor: {msg['tutor']}\n"
-        return f"Historial de la conversación:\n{history}\n"
 # Ejemplo de uso con CrewAI
 
 if __name__ == "__main__":

@@ -34,6 +34,8 @@ IntelliTutor combines:
 - **Markdown rendering** with syntax-highlighted code blocks
 - **LaTeX/math rendering** for mathematical expressions
 - **Mermaid diagrams** for flowcharts, sequence diagrams, and more
+- **Document export** to Markdown and Word (.docx) formats
+- **Message editing** to refine questions and regenerate responses
 - Real-time metrics and observability
 - Secure password hashing and session management
 - Hot reload for development
@@ -404,6 +406,28 @@ Supported diagram types:
 ### Streaming Responses
 
 Responses are streamed in real-time using Server-Sent Events (SSE), providing immediate feedback as the AI generates its response. LaTeX and Mermaid rendering is applied after the stream completes for optimal performance.
+
+### Document Export
+
+Tutor responses can be exported to different formats for offline use or sharing:
+
+| Format | Description | Icon |
+|--------|-------------|------|
+| **Markdown (.md)** | Raw markdown text, preserves all formatting | <i class="fas fa-file-alt"></i> |
+| **Word (.docx)** | Microsoft Word document with formatted text | <i class="fas fa-file-word"></i> |
+
+Export buttons appear on hover next to the last tutor response. The exported documents include:
+- Formatted headers, lists, and paragraphs
+- Bold, italic, and inline code styling
+- Code blocks with monospace font
+- Placeholder notes for Mermaid diagrams
+
+### Message Editing
+
+Users can edit their last message by clicking the pencil icon that appears on hover. After editing:
+1. The modified question replaces the original
+2. The tutor generates a new response
+3. The new response replaces the previous one
 
 ---
 

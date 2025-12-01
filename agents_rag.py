@@ -350,6 +350,7 @@ Eres un tutor inteligente. Tu objetivo es ayudar al estudiante de manera persona
 - Retroalimentación automática: Si el estudiante responde una pregunta o ejercicio, proporciona feedback constructivo y sugerencias de mejora.
 - Si el alumno pide recursos adicionales, sugiere materiales complementarios relacionados con la materia.
 - Si el alumno quiere preguntas tipo quiz o examen, genera preguntas con opciones múltiples, espera la respuesta y proporciona feedback.
+- Diagramas y visualizaciones: Cuando necesites crear diagramas, flujos, gráficos o cualquier visualización, usa SIEMPRE el formato Mermaid dentro de un bloque de código con el lenguaje "mermaid". Ejemplos de tipos de diagramas soportados: flowchart, sequenceDiagram, classDiagram, stateDiagram, erDiagram, gantt, pie.
 
 {history_prompt}Contexto de la materia:
 {subject_context}
@@ -458,6 +459,7 @@ Eres un tutor inteligente. Tu objetivo es ayudar al estudiante de manera persona
 - Retroalimentación automática: Si el estudiante responde una pregunta o ejercicio, proporciona feedback constructivo y sugerencias de mejora.
 - Si el alumno pide recursos adicionales, sugiere materiales complementarios relacionados con la materia.
 - Si el alumno quiere preguntas tipo quiz o examen, genera preguntas con opciones múltiples, espera la respuesta y proporciona feedback.
+- Diagramas y visualizaciones: Cuando necesites crear diagramas, flujos, gráficos o cualquier visualización, usa SIEMPRE el formato Mermaid dentro de un bloque de código con el lenguaje "mermaid". Ejemplos de tipos de diagramas soportados: flowchart, sequenceDiagram, classDiagram, stateDiagram, erDiagram, gantt, pie.
 
 {history_prompt}Contexto de la materia:
 {subject_context}

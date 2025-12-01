@@ -33,6 +33,7 @@ IntelliTutor combines:
 - Real-time streaming responses with SSE
 - **Markdown rendering** with syntax-highlighted code blocks
 - **LaTeX/math rendering** for mathematical expressions
+- **Mermaid diagrams** for flowcharts, sequence diagrams, and more
 - Real-time metrics and observability
 - Secure password hashing and session management
 - Hot reload for development
@@ -120,6 +121,7 @@ IntelliTutor combines:
 | **Embeddings** | Ollama (nomic-embed-text) | Text vectorization |
 | **Markdown** | marked.js + Highlight.js | Rich text & code rendering |
 | **Math Rendering** | KaTeX | LaTeX/mathematical expressions |
+| **Diagrams** | Mermaid.js | Flowcharts, sequence diagrams, etc. |
 
 ---
 
@@ -375,9 +377,33 @@ Mathematical expressions are rendered using KaTeX:
 | `\(...\)` | Inline math (LaTeX style) | `\(x^2 + y^2 = r^2\)` |
 | `\[...\]` | Display math (LaTeX style) | `\[\sum_{i=1}^n i = \frac{n(n+1)}{2}\]` |
 
+### Mermaid Diagrams
+
+Diagrams are rendered using Mermaid.js when the LLM outputs a `mermaid` code block:
+
+````markdown
+```mermaid
+graph TD
+    A[Start] --> B{Decision}
+    B -->|Yes| C[Action 1]
+    B -->|No| D[Action 2]
+    C --> E[End]
+    D --> E
+```
+````
+
+Supported diagram types:
+- **Flowcharts** (`graph TD`, `graph LR`)
+- **Sequence diagrams** (`sequenceDiagram`)
+- **Class diagrams** (`classDiagram`)
+- **State diagrams** (`stateDiagram-v2`)
+- **Entity-Relationship diagrams** (`erDiagram`)
+- **Gantt charts** (`gantt`)
+- **Pie charts** (`pie`)
+
 ### Streaming Responses
 
-Responses are streamed in real-time using Server-Sent Events (SSE), providing immediate feedback as the AI generates its response. LaTeX rendering is applied after the stream completes for optimal performance.
+Responses are streamed in real-time using Server-Sent Events (SSE), providing immediate feedback as the AI generates its response. LaTeX and Mermaid rendering is applied after the stream completes for optimal performance.
 
 ---
 

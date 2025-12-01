@@ -10,6 +10,8 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<!-- Mermaid.js for diagrams -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
 {% endblock %}
 
 {% block content %}
@@ -57,16 +59,40 @@ const chatHistory = [];
 // Enable streaming by default
 const USE_STREAMING = true;
 
-// Configure marked.js with highlight.js for code syntax highlighting
+// Initialize Mermaid
+mermaid.initialize({
+  startOnLoad: false,
+  theme: 'default',
+  securityLevel: 'loose',
+  fontFamily: 'inherit'
+});
+
+// Counter for unique mermaid diagram IDs
+let mermaidCounter = 0;
+
+// Custom renderer for marked.js to handle mermaid code blocks
+const renderer = new marked.Renderer();
+const originalCodeRenderer = renderer.code.bind(renderer);
+
+renderer.code = function(code, language, isEscaped) {
+  if (language === 'mermaid') {
+    const id = `mermaid-${mermaidCounter++}`;
+    return `<div class="mermaid-container"><pre class="mermaid" id="${id}">${code}</pre></div>`;
+  }
+  // For other languages, use highlight.js
+  if (language && hljs.getLanguage(language)) {
+    try {
+      const highlighted = hljs.highlight(code, { language: language }).value;
+      return `<pre><code class="hljs language-${language}">${highlighted}</code></pre>`;
+    } catch (e) {}
+  }
+  const highlighted = hljs.highlightAuto(code).value;
+  return `<pre><code class="hljs">${highlighted}</code></pre>`;
+};
+
+// Configure marked.js
 marked.setOptions({
-  highlight: function(code, lang) {
-    if (lang && hljs.getLanguage(lang)) {
-      try {
-        return hljs.highlight(code, { language: lang }).value;
-      } catch (e) {}
-    }
-    return hljs.highlightAuto(code).value;
-  },
+  renderer: renderer,
   breaks: true,
   gfm: true
 });
@@ -94,6 +120,22 @@ function renderLatex(element) {
   }
 }
 
+async function renderMermaidDiagrams(element) {
+  const mermaidElements = element.querySelectorAll('.mermaid:not([data-processed])');
+  for (const el of mermaidElements) {
+    try {
+      const id = el.id || `mermaid-${mermaidCounter++}`;
+      const graphDefinition = el.textContent;
+      const { svg } = await mermaid.render(id + '-svg', graphDefinition);
+      el.innerHTML = svg;
+      el.setAttribute('data-processed', 'true');
+    } catch (e) {
+      console.error('Mermaid rendering error:', e);
+      el.innerHTML = `<span class="text-red-500">Error rendering diagram: ${e.message}</span>`;
+    }
+  }
+}
+
 function appendMessage(role, text, isStreaming = false) {
   const wrapper = document.createElement('div');
   const base = 'max-w-[80%] px-4 py-3 rounded-lg shadow-sm';
@@ -105,9 +147,10 @@ function appendMessage(role, text, isStreaming = false) {
     const streamClass = isStreaming ? 'streaming-message' : '';
     const content = text ? renderMarkdown(text) : '<span class="typing-indicator">...</span>';
     wrapper.innerHTML = `<div class="${base} bg-gray-100 ${streamClass} markdown-content">${content}</div>`;
-    // Render LaTeX in tutor messages
+    // Render LaTeX and Mermaid in tutor messages (only when not streaming)
     if (text && !isStreaming) {
       renderLatex(wrapper);
+      renderMermaidDiagrams(wrapper);
     }
   }
   messagesEl.appendChild(wrapper);
@@ -119,9 +162,10 @@ function updateStreamingMessage(wrapper, text, isComplete = false) {
   const msgDiv = wrapper.querySelector('div');
   if (msgDiv) {
     msgDiv.innerHTML = renderMarkdown(text);
-    // Render LaTeX only when streaming is complete (performance optimization)
+    // Render LaTeX and Mermaid only when streaming is complete (performance optimization)
     if (isComplete) {
       renderLatex(wrapper);
+      renderMermaidDiagrams(wrapper);
     }
     messagesEl.scrollTop = messagesEl.scrollHeight;
   }
@@ -347,6 +391,24 @@ formEl.addEventListener('submit', async (e) => {
 }
 .markdown-content em {
   font-style: italic;
+}
+
+/* Mermaid diagram styling */
+.mermaid-container {
+  margin: 0.75rem 0;
+  overflow-x: auto;
+}
+.mermaid {
+  background-color: #fff;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: center;
+}
+.mermaid svg {
+  max-width: 100%;
+  height: auto;
 }
 </style>
 {% endblock %}

@@ -152,9 +152,9 @@ if st.session_state.get("page") == "app" and "user" in st.session_state:
         if "tutor_agent" not in st.session_state:
             st.session_state["tutor_agent"] = TutorAgent(
                 name="TutorRAG",
-                role="Agente tutor inteligente",
-                goal="Responder preguntas del estudiante usando RAG y personalización.",
-                backstory="Orquesta la recuperación de información y la generación de respuestas educativas personalizadas."
+                role="Agente tutor inteligente para estudiantes universitarios en México",
+                goal="Responder preguntas del estudiante usando RAG y personalización, comunicándose en español mexicano.",
+                backstory="Orquesta la recuperación de información y la generación de respuestas educativas personalizadas para el contexto universitario mexicano."
             )
         profile_agent = st.session_state["profile_agent"]
         tutor_agent = st.session_state["tutor_agent"]

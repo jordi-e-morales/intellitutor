@@ -131,9 +131,9 @@ profile_agent = StudentProfileAgent(
 
 tutor_agent = TutorAgent(
     name="TutorRAG",
-    role="Agente tutor inteligente",
-    goal="Responder preguntas del estudiante usando RAG y personalización.",
-    backstory="Orquesta la recuperación de información y la generación de respuestas educativas personalizadas."
+    role="Agente tutor inteligente para estudiantes universitarios en México",
+    goal="Responder preguntas del estudiante usando RAG y personalización, comunicándose en español mexicano.",
+    backstory="Orquesta la recuperación de información y la generación de respuestas educativas personalizadas para el contexto universitario mexicano."
 )
 
 @app.route('/')

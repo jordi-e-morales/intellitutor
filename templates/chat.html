@@ -59,6 +59,11 @@ const chatHistory = [];
 // Enable streaming by default
 const USE_STREAMING = true;
 
+// Track last user message and tutor response for editing
+let lastUserMessageWrapper = null;
+let lastTutorResponseWrapper = null;
+let isEditing = false;
+
 // Initialize Mermaid
 mermaid.initialize({
   startOnLoad: false,
@@ -137,11 +142,27 @@ async function renderMermaidDiagrams(element) {
 }
 
 function appendMessage(role, text, isStreaming = false) {
+  // Remove edit button from previous user message if exists
+  if (role === 'user' && lastUserMessageWrapper) {
+    const prevEditBtn = lastUserMessageWrapper.querySelector('.edit-btn');
+    if (prevEditBtn) prevEditBtn.remove();
+  }
+
   const wrapper = document.createElement('div');
   const base = 'max-w-[80%] px-4 py-3 rounded-lg shadow-sm';
   if (role === 'user') {
-    wrapper.className = 'w-full flex justify-end';
-    wrapper.innerHTML = `<div class="${base} bg-indigo-50 whitespace-pre-wrap">${escapeHtml(text)}</div>`;
+    wrapper.className = 'w-full flex justify-end items-end gap-2';
+    wrapper.innerHTML = `
+      <button class="edit-btn text-gray-400 hover:text-indigo-600 transition p-1" title="Editar mensaje">
+        <i class="fas fa-pencil-alt text-sm"></i>
+      </button>
+      <div class="${base} bg-indigo-50 whitespace-pre-wrap user-message-content" data-original-text="${escapeHtml(text)}">${escapeHtml(text)}</div>
+    `;
+    // Add edit button click handler
+    const editBtn = wrapper.querySelector('.edit-btn');
+    editBtn.addEventListener('click', () => startEditingMessage(wrapper, text));
+    // Track this as the last user message
+    lastUserMessageWrapper = wrapper;
   } else {
     wrapper.className = 'w-full flex justify-start';
     const streamClass = isStreaming ? 'streaming-message' : '';
@@ -152,6 +173,8 @@ function appendMessage(role, text, isStreaming = false) {
       renderLatex(wrapper);
       renderMermaidDiagrams(wrapper);
     }
+    // Track this as the last tutor response
+    lastTutorResponseWrapper = wrapper;
   }
   messagesEl.appendChild(wrapper);
   messagesEl.scrollTop = messagesEl.scrollHeight;
@@ -175,6 +198,185 @@ function escapeHtml(str) {
   const p = document.createElement('p');
   p.innerText = str;
   return p.innerHTML;
+}
+
+function startEditingMessage(wrapper, originalText) {
+  if (isEditing) return;
+  isEditing = true;
+
+  const msgDiv = wrapper.querySelector('.user-message-content');
+  const editBtn = wrapper.querySelector('.edit-btn');
+  if (editBtn) editBtn.style.display = 'none';
+
+  // Create edit input
+  const editContainer = document.createElement('div');
+  editContainer.className = 'flex-1 flex gap-2 edit-container';
+  editContainer.innerHTML = `
+    <input type="text" class="edit-input flex-1 px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" value="${escapeHtml(originalText)}" />
+    <button class="save-edit-btn px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700" title="Guardar">
+      <i class="fas fa-check"></i>
+    </button>
+    <button class="cancel-edit-btn px-3 py-2 bg-gray-400 text-white rounded-lg hover:bg-gray-500" title="Cancelar">
+      <i class="fas fa-times"></i>
+    </button>
+  `;
+
+  // Hide original message
+  msgDiv.style.display = 'none';
+  wrapper.insertBefore(editContainer, msgDiv);
+
+  const editInput = editContainer.querySelector('.edit-input');
+  const saveBtn = editContainer.querySelector('.save-edit-btn');
+  const cancelBtn = editContainer.querySelector('.cancel-edit-btn');
+
+  editInput.focus();
+  editInput.select();
+
+  // Cancel editing
+  const cancelEdit = () => {
+    editContainer.remove();
+    msgDiv.style.display = '';
+    if (editBtn) editBtn.style.display = '';
+    isEditing = false;
+  };
+
+  // Save edit and regenerate response
+  const saveEdit = async () => {
+    const newText = editInput.value.trim();
+    if (!newText) {
+      cancelEdit();
+      return;
+    }
+
+    // Update the message display
+    msgDiv.textContent = newText;
+    msgDiv.setAttribute('data-original-text', escapeHtml(newText));
+    editContainer.remove();
+    msgDiv.style.display = '';
+    if (editBtn) editBtn.style.display = '';
+    isEditing = false;
+
+    // Update the last entry in chat history
+    if (chatHistory.length > 0) {
+      chatHistory.pop();
+    }
+
+    // Disable main input while regenerating
+    inputEl.disabled = true;
+
+    // Clear and regenerate tutor response
+    if (lastTutorResponseWrapper) {
+      const base = 'max-w-[80%] px-4 py-3 rounded-lg shadow-sm';
+      lastTutorResponseWrapper.innerHTML = `<div class="${base} bg-gray-100 streaming-message markdown-content"><span class="typing-indicator">...</span></div>`;
+    }
+
+    // Build history (excluding the message we're editing)
+    const historyToSend = chatHistory.slice(-5);
+
+    // Regenerate response
+    if (USE_STREAMING) {
+      await regenerateResponseStreaming(newText, historyToSend, lastTutorResponseWrapper);
+    } else {
+      await regenerateResponseNonStreaming(newText, historyToSend, lastTutorResponseWrapper);
+    }
+
+    inputEl.disabled = false;
+    inputEl.focus();
+  };
+
+  saveBtn.addEventListener('click', saveEdit);
+  cancelBtn.addEventListener('click', cancelEdit);
+  editInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      saveEdit();
+    } else if (e.key === 'Escape') {
+      cancelEdit();
+    }
+  });
+}
+
+// Regenerate response for edited message (streaming)
+async function regenerateResponseStreaming(msg, historyToSend, wrapper) {
+  let fullResponse = '';
+
+  try {
+    const res = await fetch('/api/chat/stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: msg,
+        subject_id: Number(subjectId),
+        chat_history: historyToSend
+      })
+    });
+
+    if (!res.ok) {
+      const errData = await res.json();
+      updateStreamingMessage(wrapper, errData.error || 'Error del servidor');
+      return;
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const chunk = decoder.decode(value, { stream: true });
+      const lines = chunk.split('\n');
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          try {
+            const data = JSON.parse(line.slice(6));
+            if (data.chunk) {
+              fullResponse += data.chunk;
+              updateStreamingMessage(wrapper, fullResponse);
+            }
+            if (data.error) {
+              fullResponse += `\n[Error: ${data.error}]`;
+              updateStreamingMessage(wrapper, fullResponse);
+            }
+            if (data.done) {
+              updateStreamingMessage(wrapper, fullResponse, true);
+            }
+          } catch (e) {}
+        }
+      }
+    }
+
+    if (fullResponse) {
+      chatHistory.push({ user: msg, tutor: fullResponse });
+    }
+  } catch (err) {
+    updateStreamingMessage(wrapper, 'No se pudo contactar al servidor.');
+  }
+}
+
+// Regenerate response for edited message (non-streaming)
+async function regenerateResponseNonStreaming(msg, historyToSend, wrapper) {
+  try {
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: msg,
+        subject_id: Number(subjectId),
+        chat_history: historyToSend
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      updateStreamingMessage(wrapper, data.error || 'Error del servidor', true);
+      return;
+    }
+    const reply = data.reply || '';
+    updateStreamingMessage(wrapper, reply, true);
+    chatHistory.push({ user: msg, tutor: reply });
+  } catch (err) {
+    updateStreamingMessage(wrapper, 'No se pudo contactar al servidor.', true);
+  }
 }
 
 // Streaming chat using fetch + ReadableStream
@@ -409,6 +611,22 @@ formEl.addEventListener('submit', async (e) => {
 .mermaid svg {
   max-width: 100%;
   height: auto;
+}
+
+/* Edit button styling */
+.edit-btn {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.w-full:hover .edit-btn {
+  opacity: 1;
+}
+.edit-container {
+  width: 100%;
+  max-width: 80%;
+}
+.edit-input {
+  min-width: 200px;
 }
 </style>
 {% endblock %}

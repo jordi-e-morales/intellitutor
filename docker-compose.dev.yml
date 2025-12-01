@@ -1,0 +1,58 @@
+# docker-compose.dev.yml
+# Development configuration - runs only infrastructure services
+# The Flask app runs locally for hot-reloading and debugging
+#
+# Usage: docker compose -f docker-compose.dev.yml up -d
+
+services:
+  # ===========================================
+  # PostgreSQL Database
+  # ===========================================
+  db:
+    image: postgres:16
+    container_name: tutor_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: tutor_db
+      POSTGRES_USER: tutor_user
+      POSTGRES_PASSWORD: tutor_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tutor_user -d tutor_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ===========================================
+  # PGAdmin (Database Management UI)
+  # ===========================================
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - db
+
+  # ===========================================
+  # Qdrant Vector Database
+  # ===========================================
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: qdrant
+    restart: unless-stopped
+    ports:
+      - "6333:6333"  # REST API
+      - "6334:6334"  # gRPC
+    volumes:
+      - ./qdrant_data:/qdrant/storage
+
+volumes:
+  postgres_data:

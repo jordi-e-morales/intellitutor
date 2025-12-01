@@ -18,6 +18,7 @@
             box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
         }
     </style>
+    {% block head %}{% endblock %}
 </head>
 <body class="bg-gray-50 min-h-screen">
     {% if session.user_id %}

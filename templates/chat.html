@@ -75,31 +75,41 @@ mermaid.initialize({
 // Counter for unique mermaid diagram IDs
 let mermaidCounter = 0;
 
-// Custom renderer for marked.js to handle mermaid code blocks
-const renderer = new marked.Renderer();
-const originalCodeRenderer = renderer.code.bind(renderer);
-
-renderer.code = function(code, language, isEscaped) {
-  if (language === 'mermaid') {
-    const id = `mermaid-${mermaidCounter++}`;
-    return `<div class="mermaid-container"><pre class="mermaid" id="${id}">${code}</pre></div>`;
-  }
-  // For other languages, use highlight.js
-  if (language && hljs.getLanguage(language)) {
-    try {
-      const highlighted = hljs.highlight(code, { language: language }).value;
-      return `<pre><code class="hljs language-${language}">${highlighted}</code></pre>`;
-    } catch (e) {}
-  }
-  const highlighted = hljs.highlightAuto(code).value;
-  return `<pre><code class="hljs">${highlighted}</code></pre>`;
-};
-
-// Configure marked.js
-marked.setOptions({
-  renderer: renderer,
+// Configure marked.js with custom renderer for mermaid and code highlighting
+marked.use({
   breaks: true,
-  gfm: true
+  gfm: true,
+  renderer: {
+    code(token) {
+      const code = token.text || token;
+      const language = token.lang || '';
+
+      if (language === 'mermaid') {
+        const id = `mermaid-${mermaidCounter++}`;
+        // Escape HTML entities in mermaid code to prevent parsing issues
+        const escapedCode = code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        return `<div class="mermaid-container"><pre class="mermaid" id="${id}">${escapedCode}</pre></div>`;
+      }
+
+      // For other languages, use highlight.js
+      if (language && hljs.getLanguage(language)) {
+        try {
+          const highlighted = hljs.highlight(code, { language: language }).value;
+          return `<pre><code class="hljs language-${language}">${highlighted}</code></pre>`;
+        } catch (e) {}
+      }
+
+      // Auto-detect language
+      try {
+        const highlighted = hljs.highlightAuto(code).value;
+        return `<pre><code class="hljs">${highlighted}</code></pre>`;
+      } catch (e) {
+        // Fallback: escape and return plain code
+        const escaped = code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        return `<pre><code>${escaped}</code></pre>`;
+      }
+    }
+  }
 });
 
 function renderMarkdown(text) {
@@ -125,18 +135,69 @@ function renderLatex(element) {
   }
 }
 
+// Sanitize mermaid code to fix common LLM-generated syntax issues
+function sanitizeMermaidCode(code) {
+  // Split into lines for processing
+  const lines = code.split('\n');
+  const sanitizedLines = lines.map(line => {
+    // Skip lines that are just diagram type declarations or arrows
+    if (/^\s*(graph|flowchart|sequenceDiagram|classDiagram|stateDiagram|erDiagram|gantt|pie)/i.test(line)) {
+      return line;
+    }
+
+    // Fix node labels with unescaped special characters
+    // Match patterns like: A[text with (parens) or other chars]
+    // And convert to: A["text with (parens) or other chars"]
+    return line.replace(/(\w+)\s*\[([^\]"]+)\]/g, (match, nodeId, label) => {
+      // Check if label contains special chars that need quoting
+      if (/[(){}|<>]/.test(label) && !label.startsWith('"')) {
+        // Escape any existing quotes in the label
+        const escapedLabel = label.replace(/"/g, "'");
+        return `${nodeId}["${escapedLabel}"]`;
+      }
+      return match;
+    }).replace(/(\w+)\s*\(([^)"]+)\)/g, (match, nodeId, label) => {
+      // Handle round nodes: A(text with special chars)
+      if (/[[\]{}|<>]/.test(label) && !label.startsWith('"')) {
+        const escapedLabel = label.replace(/"/g, "'");
+        return `${nodeId}("${escapedLabel}")`;
+      }
+      return match;
+    });
+  });
+
+  return sanitizedLines.join('\n');
+}
+
 async function renderMermaidDiagrams(element) {
   const mermaidElements = element.querySelectorAll('.mermaid:not([data-processed])');
   for (const el of mermaidElements) {
     try {
       const id = el.id || `mermaid-${mermaidCounter++}`;
-      const graphDefinition = el.textContent;
-      const { svg } = await mermaid.render(id + '-svg', graphDefinition);
-      el.innerHTML = svg;
-      el.setAttribute('data-processed', 'true');
+      // Get the text content (this automatically unescapes HTML entities)
+      let graphDefinition = el.textContent.trim();
+      if (!graphDefinition) continue;
+
+      // Try to sanitize the mermaid code
+      const sanitizedCode = sanitizeMermaidCode(graphDefinition);
+
+      try {
+        const { svg } = await mermaid.render(id + '-svg', sanitizedCode);
+        el.innerHTML = svg;
+        el.setAttribute('data-processed', 'true');
+      } catch (firstError) {
+        // If sanitized version fails, try original
+        console.warn('Sanitized mermaid failed, trying original:', firstError.message);
+        const { svg } = await mermaid.render(id + '-retry-svg', graphDefinition);
+        el.innerHTML = svg;
+        el.setAttribute('data-processed', 'true');
+      }
     } catch (e) {
       console.error('Mermaid rendering error:', e);
-      el.innerHTML = `<span class="text-red-500">Error rendering diagram: ${e.message}</span>`;
+      // Show error but keep the original code visible
+      const originalCode = el.textContent.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      el.innerHTML = `<div class="text-red-500 text-sm mb-2">Error al renderizar diagrama: ${e.message}</div><pre class="text-xs bg-gray-800 text-gray-300 p-2 rounded overflow-x-auto">${originalCode}</pre>`;
+      el.setAttribute('data-processed', 'true');
     }
   }
 }

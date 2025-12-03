@@ -1,34 +1,93 @@
 {% extends "base.html" %}
 
+{% block head %}
+<!-- Marked.js for Markdown rendering -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<!-- Highlight.js for code syntax highlighting -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github.min.css">
+<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+<!-- KaTeX for LaTeX rendering -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<!-- Mermaid.js for diagrams -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<!-- docx.js for Word document export -->
+<script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.min.js"></script>
+<!-- FileSaver.js for downloading files -->
+<script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+{% endblock %}
+
 {% block content %}
-<div class="max-w-7xl mx-auto py-6 px-4">
+<div class="max-w-5xl mx-auto py-6 px-4 sm:px-6">
+    <!-- Header -->
     <div class="flex items-center justify-between mb-6">
-        <div>
-            <h1 class="text-2xl font-bold text-gray-900">{{ subject_name }}</h1>
-            <p class="text-gray-600">Tutor Virtual</p>
+        <div class="flex items-center space-x-4">
+            <div class="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                <i class="fas fa-robot text-white text-xl"></i>
+            </div>
+            <div>
+                <h1 class="text-xl font-bold text-gray-900">{{ subject_name }}</h1>
+                <p class="text-sm text-gray-500 flex items-center">
+                    <span class="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></span>
+                    Tutor Virtual Activo
+                </p>
+            </div>
         </div>
-        <a href="{{ url_for('dashboard') }}" 
-           class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition">
-            <i class="fas fa-arrow-left mr-2"></i>Volver
+        <a href="{{ url_for('dashboard') }}"
+           class="btn-secondary px-4 py-2.5 rounded-xl flex items-center space-x-2 font-medium">
+            <i class="fas fa-arrow-left"></i>
+            <span>Volver</span>
         </a>
     </div>
 
     <!-- Chat container -->
-    <div id="chat-container" class="bg-white rounded-xl shadow-lg flex flex-col h-[80vh]">
+    <div id="chat-container" class="glass-card rounded-2xl shadow-xl flex flex-col h-[78vh] border border-gray-100 overflow-hidden">
+        <!-- Chat header bar -->
+        <div class="bg-gradient-to-r from-gray-50 to-white px-5 py-3 border-b border-gray-100 flex items-center justify-between">
+            <div class="flex items-center space-x-2 text-sm text-gray-500">
+                <i class="fas fa-comment-dots text-indigo-500"></i>
+                <span>Conversación</span>
+            </div>
+            <div class="flex items-center space-x-1 text-xs text-gray-400">
+                <i class="fas fa-shield-alt"></i>
+                <span>Sesión segura</span>
+            </div>
+        </div>
+
         <!-- Messages -->
-        <div id="messages" class="flex-1 overflow-y-auto p-4 space-y-3">
-            <!-- Messages appended here -->
+        <div id="messages" class="flex-1 overflow-y-auto p-5 space-y-4 scrollbar-thin bg-gradient-to-b from-gray-50/50 to-white">
+            <!-- Welcome message -->
+            <div class="flex justify-center mb-4">
+                <div class="bg-indigo-50 text-indigo-700 px-4 py-2 rounded-full text-sm font-medium">
+                    <i class="fas fa-sparkles mr-2"></i>
+                    ¡Hola! Soy tu tutor virtual. ¿En qué puedo ayudarte hoy?
+                </div>
+            </div>
         </div>
 
         <!-- Input -->
-        <div class="border-t p-3">
-            <form id="chat-form" class="flex gap-2" autocomplete="off">
+        <div class="border-t border-gray-100 bg-white p-4">
+            <form id="chat-form" class="flex gap-3" autocomplete="off">
                 <input type="hidden" id="subject_id" value="{{ subject_id }}" />
-                <input id="message" type="text" class="flex-1 px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Escribe tu pregunta..." />
-                <button type="submit" class="px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
+                <div class="flex-1 relative">
+                    <input id="message" type="text"
+                           class="w-full pl-5 pr-12 py-3.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+                           placeholder="Escribe tu pregunta aquí..." />
+                    <div class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs hidden sm:block">
+                        <kbd class="px-2 py-1 bg-gray-200 rounded text-gray-500">Enter</kbd>
+                    </div>
+                </div>
+                <button type="submit"
+                        class="btn-primary px-5 py-3.5 rounded-xl flex items-center space-x-2 text-white font-medium shadow-lg hover:shadow-xl transition">
+                    <span class="hidden sm:inline">Enviar</span>
                     <i class="fas fa-paper-plane"></i>
                 </button>
             </form>
+            <p class="text-xs text-gray-400 text-center mt-3">
+                <i class="fas fa-lightbulb mr-1"></i>
+                Tip: Puedes preguntar sobre conceptos, ejemplos, ejercicios o pedir que te explique un tema.
+            </p>
         </div>
     </div>
 </div>
@@ -42,18 +101,422 @@ const subjectId = document.getElementById('subject_id').value;
 // Maintain a small chat history to send as context
 const chatHistory = [];
 
-function appendMessage(role, text) {
+// Enable streaming by default
+const USE_STREAMING = true;
+
+// Track last user message and tutor response for editing
+let lastUserMessageWrapper = null;
+let lastTutorResponseWrapper = null;
+let isEditing = false;
+
+// Initialize Mermaid
+mermaid.initialize({
+  startOnLoad: false,
+  theme: 'default',
+  securityLevel: 'loose',
+  fontFamily: 'inherit'
+});
+
+// Counter for unique mermaid diagram IDs
+let mermaidCounter = 0;
+
+// Configure marked.js with custom renderer for mermaid and code highlighting
+marked.use({
+  breaks: true,
+  gfm: true,
+  renderer: {
+    code(token) {
+      const code = token.text || token;
+      const language = token.lang || '';
+
+      if (language === 'mermaid') {
+        const id = `mermaid-${mermaidCounter++}`;
+        // Escape HTML entities in mermaid code to prevent parsing issues
+        const escapedCode = code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        return `<div class="mermaid-container"><pre class="mermaid" id="${id}">${escapedCode}</pre></div>`;
+      }
+
+      // For other languages, use highlight.js
+      if (language && hljs.getLanguage(language)) {
+        try {
+          const highlighted = hljs.highlight(code, { language: language }).value;
+          return `<pre><code class="hljs language-${language}">${highlighted}</code></pre>`;
+        } catch (e) {}
+      }
+
+      // Auto-detect language
+      try {
+        const highlighted = hljs.highlightAuto(code).value;
+        return `<pre><code class="hljs">${highlighted}</code></pre>`;
+      } catch (e) {
+        // Fallback: escape and return plain code
+        const escaped = code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        return `<pre><code>${escaped}</code></pre>`;
+      }
+    }
+  }
+});
+
+function renderMarkdown(text) {
+  try {
+    return marked.parse(text);
+  } catch (e) {
+    return escapeHtml(text);
+  }
+}
+
+function renderLatex(element) {
+  if (typeof renderMathInElement === 'function') {
+    renderMathInElement(element, {
+      delimiters: [
+        { left: '$$', right: '$$', display: true },
+        { left: '$', right: '$', display: false },
+        { left: '\\[', right: '\\]', display: true },
+        { left: '\\(', right: '\\)', display: false }
+      ],
+      throwOnError: false,
+      errorColor: '#cc0000'
+    });
+  }
+}
+
+// Sanitize mermaid code to fix common LLM-generated syntax issues
+function sanitizeMermaidCode(code) {
+  // Split into lines for processing
+  const lines = code.split('\n');
+  const sanitizedLines = lines.map(line => {
+    // Skip lines that are just diagram type declarations or arrows
+    if (/^\s*(graph|flowchart|sequenceDiagram|classDiagram|stateDiagram|erDiagram|gantt|pie)/i.test(line)) {
+      return line;
+    }
+
+    // Fix node labels with unescaped special characters
+    // Match patterns like: A[text with (parens) or other chars]
+    // And convert to: A["text with (parens) or other chars"]
+    return line.replace(/(\w+)\s*\[([^\]"]+)\]/g, (match, nodeId, label) => {
+      // Check if label contains special chars that need quoting
+      if (/[(){}|<>]/.test(label) && !label.startsWith('"')) {
+        // Escape any existing quotes in the label
+        const escapedLabel = label.replace(/"/g, "'");
+        return `${nodeId}["${escapedLabel}"]`;
+      }
+      return match;
+    }).replace(/(\w+)\s*\(([^)"]+)\)/g, (match, nodeId, label) => {
+      // Handle round nodes: A(text with special chars)
+      if (/[[\]{}|<>]/.test(label) && !label.startsWith('"')) {
+        const escapedLabel = label.replace(/"/g, "'");
+        return `${nodeId}("${escapedLabel}")`;
+      }
+      return match;
+    });
+  });
+
+  return sanitizedLines.join('\n');
+}
+
+async function renderMermaidDiagrams(element) {
+  const mermaidElements = element.querySelectorAll('.mermaid:not([data-processed])');
+  for (const el of mermaidElements) {
+    try {
+      const id = el.id || `mermaid-${mermaidCounter++}`;
+      // Get the text content (this automatically unescapes HTML entities)
+      let graphDefinition = el.textContent.trim();
+      if (!graphDefinition) continue;
+
+      // Try to sanitize the mermaid code
+      const sanitizedCode = sanitizeMermaidCode(graphDefinition);
+
+      try {
+        const { svg } = await mermaid.render(id + '-svg', sanitizedCode);
+        el.innerHTML = svg;
+        el.setAttribute('data-processed', 'true');
+      } catch (firstError) {
+        // If sanitized version fails, try original
+        console.warn('Sanitized mermaid failed, trying original:', firstError.message);
+        const { svg } = await mermaid.render(id + '-retry-svg', graphDefinition);
+        el.innerHTML = svg;
+        el.setAttribute('data-processed', 'true');
+      }
+    } catch (e) {
+      console.error('Mermaid rendering error:', e);
+      // Show error but keep the original code visible
+      const originalCode = el.textContent.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      el.innerHTML = `<div class="text-red-500 text-sm mb-2">Error al renderizar diagrama: ${e.message}</div><pre class="text-xs bg-gray-800 text-gray-300 p-2 rounded overflow-x-auto">${originalCode}</pre>`;
+      el.setAttribute('data-processed', 'true');
+    }
+  }
+}
+
+function appendMessage(role, text, isStreaming = false) {
+  // Remove edit button from previous user message if exists
+  if (role === 'user' && lastUserMessageWrapper) {
+    const prevEditBtn = lastUserMessageWrapper.querySelector('.edit-btn');
+    if (prevEditBtn) prevEditBtn.remove();
+  }
+  // Remove export buttons from previous tutor message if exists
+  if (role === 'tutor' && lastTutorResponseWrapper) {
+    const prevExportBtns = lastTutorResponseWrapper.querySelector('.export-buttons');
+    if (prevExportBtns) prevExportBtns.remove();
+  }
+
   const wrapper = document.createElement('div');
-  const base = 'max-w-[80%] px-4 py-3 rounded-lg shadow-sm';
   if (role === 'user') {
-    wrapper.className = 'w-full flex justify-end';
-    wrapper.innerHTML = `<div class="${base} bg-indigo-50">${escapeHtml(text)}</div>`;
+    wrapper.className = 'w-full flex justify-end items-end gap-2 animate-fade-in';
+    wrapper.innerHTML = `
+      <button class="edit-btn text-gray-300 hover:text-indigo-600 transition p-1.5 rounded-lg hover:bg-gray-100" title="Editar mensaje">
+        <i class="fas fa-pencil-alt text-sm"></i>
+      </button>
+      <div class="user-message max-w-[75%] px-4 py-3 rounded-2xl rounded-br-md bg-gradient-to-br from-indigo-600 to-indigo-700 text-white shadow-md user-message-content" data-original-text="${escapeHtml(text)}">${escapeHtml(text)}</div>
+    `;
+    // Add edit button click handler
+    const editBtn = wrapper.querySelector('.edit-btn');
+    editBtn.addEventListener('click', () => startEditingMessage(wrapper, text));
+    // Track this as the last user message
+    lastUserMessageWrapper = wrapper;
   } else {
-    wrapper.className = 'w-full flex justify-start';
-    wrapper.innerHTML = `<div class="${base} bg-gray-100">${escapeHtml(text)}</div>`;
+    wrapper.className = 'w-full flex justify-start items-end gap-2 animate-fade-in';
+    const streamClass = isStreaming ? 'streaming-message' : '';
+    const content = text ? renderMarkdown(text) : '<span class="typing-indicator"><span></span><span></span><span></span></span>';
+    wrapper.innerHTML = `
+      <div class="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center flex-shrink-0 shadow-md">
+        <i class="fas fa-robot text-white text-sm"></i>
+      </div>
+      <div class="tutor-message max-w-[75%] px-4 py-3 rounded-2xl rounded-bl-md bg-white border border-gray-100 shadow-md ${streamClass} markdown-content tutor-message-content" data-raw-text="">${content}</div>
+      <div class="export-buttons flex flex-col gap-1" style="display: none;">
+        <button class="export-md-btn text-gray-300 hover:text-indigo-600 transition p-1.5 rounded-lg hover:bg-gray-100" title="Descargar como Markdown">
+          <i class="fas fa-file-alt text-sm"></i>
+        </button>
+        <button class="export-docx-btn text-gray-300 hover:text-blue-600 transition p-1.5 rounded-lg hover:bg-gray-100" title="Descargar como Word">
+          <i class="fas fa-file-word text-sm"></i>
+        </button>
+      </div>
+    `;
+    // Store raw text for export and add handlers when not streaming
+    if (text && !isStreaming) {
+      const msgDiv = wrapper.querySelector('.tutor-message-content');
+      msgDiv.setAttribute('data-raw-text', text);
+      renderLatex(wrapper);
+      renderMermaidDiagrams(wrapper);
+      addExportHandlers(wrapper, text);
+    }
+    // Track this as the last tutor response
+    lastTutorResponseWrapper = wrapper;
   }
   messagesEl.appendChild(wrapper);
   messagesEl.scrollTop = messagesEl.scrollHeight;
+  return wrapper;
+}
+
+function addExportHandlers(wrapper, rawText) {
+  const exportButtons = wrapper.querySelector('.export-buttons');
+  const mdBtn = wrapper.querySelector('.export-md-btn');
+  const docxBtn = wrapper.querySelector('.export-docx-btn');
+
+  if (exportButtons) {
+    exportButtons.style.display = 'flex';
+  }
+
+  if (mdBtn) {
+    mdBtn.addEventListener('click', () => exportAsMarkdown(rawText));
+  }
+
+  if (docxBtn) {
+    docxBtn.addEventListener('click', () => exportAsDocx(rawText));
+  }
+}
+
+function exportAsMarkdown(text) {
+  const timestamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '');
+  const filename = `tutor_respuesta_${timestamp}.md`;
+  const blob = new Blob([text], { type: 'text/markdown;charset=utf-8' });
+  saveAs(blob, filename);
+}
+
+async function exportAsDocx(text) {
+  const { Document, Paragraph, TextRun, HeadingLevel, Packer, AlignmentType } = docx;
+
+  // Parse markdown and convert to docx elements
+  const children = parseMarkdownToDocx(text);
+
+  const doc = new Document({
+    sections: [{
+      properties: {},
+      children: children
+    }]
+  });
+
+  const blob = await Packer.toBlob(doc);
+  const timestamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '');
+  const filename = `tutor_respuesta_${timestamp}.docx`;
+  saveAs(blob, filename);
+}
+
+function parseMarkdownToDocx(text) {
+  const { Paragraph, TextRun, HeadingLevel, AlignmentType } = docx;
+  const lines = text.split('\n');
+  const children = [];
+  let inCodeBlock = false;
+  let codeBlockContent = [];
+  let codeBlockLang = '';
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    // Handle code blocks
+    if (line.startsWith('```')) {
+      if (!inCodeBlock) {
+        inCodeBlock = true;
+        codeBlockLang = line.slice(3).trim();
+        codeBlockContent = [];
+      } else {
+        // End of code block
+        inCodeBlock = false;
+        if (codeBlockLang !== 'mermaid') {
+          children.push(new Paragraph({
+            children: [new TextRun({ text: codeBlockContent.join('\n'), font: 'Courier New', size: 20 })],
+            shading: { fill: 'E5E7EB' },
+            spacing: { before: 100, after: 100 }
+          }));
+        } else {
+          children.push(new Paragraph({
+            children: [new TextRun({ text: '[Diagrama Mermaid - ver documento original]', italics: true, color: '666666' })]
+          }));
+        }
+        codeBlockContent = [];
+        codeBlockLang = '';
+      }
+      continue;
+    }
+
+    if (inCodeBlock) {
+      codeBlockContent.push(line);
+      continue;
+    }
+
+    // Handle headers
+    if (line.startsWith('# ')) {
+      children.push(new Paragraph({
+        text: line.slice(2),
+        heading: HeadingLevel.HEADING_1
+      }));
+    } else if (line.startsWith('## ')) {
+      children.push(new Paragraph({
+        text: line.slice(3),
+        heading: HeadingLevel.HEADING_2
+      }));
+    } else if (line.startsWith('### ')) {
+      children.push(new Paragraph({
+        text: line.slice(4),
+        heading: HeadingLevel.HEADING_3
+      }));
+    } else if (line.startsWith('- ') || line.startsWith('* ')) {
+      // Bullet points
+      children.push(new Paragraph({
+        children: parseInlineFormatting(line.slice(2)),
+        bullet: { level: 0 }
+      }));
+    } else if (/^\d+\.\s/.test(line)) {
+      // Numbered list
+      const content = line.replace(/^\d+\.\s/, '');
+      children.push(new Paragraph({
+        children: parseInlineFormatting(content),
+        numbering: { reference: 'default-numbering', level: 0 }
+      }));
+    } else if (line.startsWith('> ')) {
+      // Blockquote
+      children.push(new Paragraph({
+        children: [new TextRun({ text: line.slice(2), italics: true, color: '666666' })],
+        indent: { left: 720 }
+      }));
+    } else if (line.trim() === '') {
+      // Empty line
+      children.push(new Paragraph({ children: [] }));
+    } else {
+      // Regular paragraph
+      children.push(new Paragraph({
+        children: parseInlineFormatting(line)
+      }));
+    }
+  }
+
+  return children;
+}
+
+function parseInlineFormatting(text) {
+  const { TextRun } = docx;
+  const runs = [];
+  let remaining = text;
+
+  // Simple regex-based parsing for bold, italic, code, and LaTeX
+  const patterns = [
+    { regex: /\*\*(.+?)\*\*/g, style: { bold: true } },
+    { regex: /\*(.+?)\*/g, style: { italics: true } },
+    { regex: /`(.+?)`/g, style: { font: 'Courier New', shading: { fill: 'E5E7EB' } } },
+    { regex: /\$(.+?)\$/g, style: { italics: true, color: '4F46E5' } }
+  ];
+
+  // For simplicity, just handle basic formatting
+  // Split by formatting markers and apply styles
+  let lastIndex = 0;
+  const segments = [];
+
+  // Handle bold
+  remaining = remaining.replace(/\*\*(.+?)\*\*/g, (match, content, offset) => {
+    return `\x00BOLD\x00${content}\x00ENDBOLD\x00`;
+  });
+
+  // Handle italic
+  remaining = remaining.replace(/\*(.+?)\*/g, (match, content) => {
+    return `\x00ITALIC\x00${content}\x00ENDITALIC\x00`;
+  });
+
+  // Handle inline code
+  remaining = remaining.replace(/`(.+?)`/g, (match, content) => {
+    return `\x00CODE\x00${content}\x00ENDCODE\x00`;
+  });
+
+  // Parse the marked text
+  const parts = remaining.split('\x00').filter(p => p);
+  let currentStyle = {};
+
+  for (const part of parts) {
+    if (part === 'BOLD') {
+      currentStyle = { ...currentStyle, bold: true };
+    } else if (part === 'ENDBOLD') {
+      currentStyle = { ...currentStyle, bold: false };
+    } else if (part === 'ITALIC') {
+      currentStyle = { ...currentStyle, italics: true };
+    } else if (part === 'ENDITALIC') {
+      currentStyle = { ...currentStyle, italics: false };
+    } else if (part === 'CODE') {
+      currentStyle = { ...currentStyle, font: 'Courier New' };
+    } else if (part === 'ENDCODE') {
+      currentStyle = { ...currentStyle, font: undefined };
+    } else {
+      runs.push(new TextRun({ text: part, ...currentStyle }));
+    }
+  }
+
+  if (runs.length === 0) {
+    runs.push(new TextRun({ text: text }));
+  }
+
+  return runs;
+}
+
+function updateStreamingMessage(wrapper, text, isComplete = false) {
+  const msgDiv = wrapper.querySelector('.tutor-message-content') || wrapper.querySelector('div');
+  if (msgDiv) {
+    msgDiv.innerHTML = renderMarkdown(text);
+    // Render LaTeX and Mermaid only when streaming is complete (performance optimization)
+    if (isComplete) {
+      msgDiv.setAttribute('data-raw-text', text);
+      renderLatex(wrapper);
+      renderMermaidDiagrams(wrapper);
+      addExportHandlers(wrapper, text);
+    }
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
 }
 
 function escapeHtml(str) {
@@ -62,19 +525,255 @@ function escapeHtml(str) {
   return p.innerHTML;
 }
 
-formEl.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const msg = (inputEl.value || '').trim();
-  if (!msg) return;
+function startEditingMessage(wrapper, originalText) {
+  if (isEditing) return;
+  isEditing = true;
 
-  // UI: show user message
-  appendMessage('user', msg);
-  inputEl.value = '';
+  const msgDiv = wrapper.querySelector('.user-message-content');
+  const editBtn = wrapper.querySelector('.edit-btn');
+  if (editBtn) editBtn.style.display = 'none';
 
-  // Build minimal history (last 5)
-  const historyToSend = chatHistory.slice(-5);
+  // Create edit input
+  const editContainer = document.createElement('div');
+  editContainer.className = 'flex-1 flex gap-2 edit-container';
+  editContainer.innerHTML = `
+    <input type="text" class="edit-input flex-1 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900" value="${escapeHtml(originalText)}" />
+    <button class="save-edit-btn px-3 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition" title="Guardar">
+      <i class="fas fa-check"></i>
+    </button>
+    <button class="cancel-edit-btn px-3 py-2 bg-gray-200 text-gray-600 rounded-xl hover:bg-gray-300 transition" title="Cancelar">
+      <i class="fas fa-times"></i>
+    </button>
+  `;
 
-  // Send to backend
+  // Hide original message
+  msgDiv.style.display = 'none';
+  wrapper.insertBefore(editContainer, msgDiv);
+
+  const editInput = editContainer.querySelector('.edit-input');
+  const saveBtn = editContainer.querySelector('.save-edit-btn');
+  const cancelBtn = editContainer.querySelector('.cancel-edit-btn');
+
+  editInput.focus();
+  editInput.select();
+
+  // Cancel editing
+  const cancelEdit = () => {
+    editContainer.remove();
+    msgDiv.style.display = '';
+    if (editBtn) editBtn.style.display = '';
+    isEditing = false;
+  };
+
+  // Save edit and regenerate response
+  const saveEdit = async () => {
+    const newText = editInput.value.trim();
+    if (!newText) {
+      cancelEdit();
+      return;
+    }
+
+    // Update the message display
+    msgDiv.textContent = newText;
+    msgDiv.setAttribute('data-original-text', escapeHtml(newText));
+    editContainer.remove();
+    msgDiv.style.display = '';
+    if (editBtn) editBtn.style.display = '';
+    isEditing = false;
+
+    // Update the last entry in chat history
+    if (chatHistory.length > 0) {
+      chatHistory.pop();
+    }
+
+    // Disable main input while regenerating
+    inputEl.disabled = true;
+
+    // Clear and regenerate tutor response
+    if (lastTutorResponseWrapper) {
+      const tutorContent = lastTutorResponseWrapper.querySelector('.tutor-message-content');
+      if (tutorContent) {
+        tutorContent.innerHTML = '<span class="typing-indicator"><span></span><span></span><span></span></span>';
+        tutorContent.classList.add('streaming-message');
+      }
+    }
+
+    // Build history (excluding the message we're editing)
+    const historyToSend = chatHistory.slice(-10);
+
+    // Regenerate response
+    if (USE_STREAMING) {
+      await regenerateResponseStreaming(newText, historyToSend, lastTutorResponseWrapper);
+    } else {
+      await regenerateResponseNonStreaming(newText, historyToSend, lastTutorResponseWrapper);
+    }
+
+    inputEl.disabled = false;
+    inputEl.focus();
+  };
+
+  saveBtn.addEventListener('click', saveEdit);
+  cancelBtn.addEventListener('click', cancelEdit);
+  editInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      saveEdit();
+    } else if (e.key === 'Escape') {
+      cancelEdit();
+    }
+  });
+}
+
+// Regenerate response for edited message (streaming)
+async function regenerateResponseStreaming(msg, historyToSend, wrapper) {
+  let fullResponse = '';
+
+  try {
+    const res = await fetch('/api/chat/stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: msg,
+        subject_id: Number(subjectId),
+        chat_history: historyToSend
+      })
+    });
+
+    if (!res.ok) {
+      const errData = await res.json();
+      updateStreamingMessage(wrapper, errData.error || 'Error del servidor');
+      return;
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const chunk = decoder.decode(value, { stream: true });
+      const lines = chunk.split('\n');
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          try {
+            const data = JSON.parse(line.slice(6));
+            if (data.chunk) {
+              fullResponse += data.chunk;
+              updateStreamingMessage(wrapper, fullResponse);
+            }
+            if (data.error) {
+              fullResponse += `\n[Error: ${data.error}]`;
+              updateStreamingMessage(wrapper, fullResponse);
+            }
+            if (data.done) {
+              updateStreamingMessage(wrapper, fullResponse, true);
+            }
+          } catch (e) {}
+        }
+      }
+    }
+
+    if (fullResponse) {
+      chatHistory.push({ user: msg, tutor: fullResponse });
+    }
+  } catch (err) {
+    updateStreamingMessage(wrapper, 'No se pudo contactar al servidor.');
+  }
+}
+
+// Regenerate response for edited message (non-streaming)
+async function regenerateResponseNonStreaming(msg, historyToSend, wrapper) {
+  try {
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: msg,
+        subject_id: Number(subjectId),
+        chat_history: historyToSend
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      updateStreamingMessage(wrapper, data.error || 'Error del servidor', true);
+      return;
+    }
+    const reply = data.reply || '';
+    updateStreamingMessage(wrapper, reply, true);
+    chatHistory.push({ user: msg, tutor: reply });
+  } catch (err) {
+    updateStreamingMessage(wrapper, 'No se pudo contactar al servidor.', true);
+  }
+}
+
+// Streaming chat using fetch + ReadableStream
+async function sendMessageStreaming(msg, historyToSend) {
+  // Create placeholder message
+  const wrapper = appendMessage('tutor', '', true);
+  let fullResponse = '';
+
+  try {
+    const res = await fetch('/api/chat/stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: msg,
+        subject_id: Number(subjectId),
+        chat_history: historyToSend
+      })
+    });
+
+    if (!res.ok) {
+      const errData = await res.json();
+      updateStreamingMessage(wrapper, errData.error || 'Error del servidor');
+      return;
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const chunk = decoder.decode(value, { stream: true });
+      // Parse SSE events
+      const lines = chunk.split('\n');
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          try {
+            const data = JSON.parse(line.slice(6));
+            if (data.chunk) {
+              fullResponse += data.chunk;
+              updateStreamingMessage(wrapper, fullResponse);
+            }
+            if (data.error) {
+              fullResponse += `\n[Error: ${data.error}]`;
+              updateStreamingMessage(wrapper, fullResponse);
+            }
+            if (data.done) {
+              // Streaming complete - render LaTeX now
+              updateStreamingMessage(wrapper, fullResponse, true);
+            }
+          } catch (e) {
+            // Ignore parse errors for incomplete chunks
+          }
+        }
+      }
+    }
+
+    // Save to history
+    if (fullResponse) {
+      chatHistory.push({ user: msg, tutor: fullResponse });
+    }
+  } catch (err) {
+    updateStreamingMessage(wrapper, 'No se pudo contactar al servidor.');
+  }
+}
+
+// Non-streaming fallback
+async function sendMessageNonStreaming(msg, historyToSend) {
   try {
     const res = await fetch('/api/chat', {
       method: 'POST',
@@ -96,6 +795,228 @@ formEl.addEventListener('submit', async (e) => {
   } catch (err) {
     appendMessage('tutor', 'No se pudo contactar al servidor.');
   }
+}
+
+formEl.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const msg = (inputEl.value || '').trim();
+  if (!msg) return;
+
+  // UI: show user message
+  appendMessage('user', msg);
+  inputEl.value = '';
+  inputEl.disabled = true;
+
+  // Build minimal history (last 10)
+  const historyToSend = chatHistory.slice(-10);
+
+  // Send to backend (streaming or non-streaming)
+  if (USE_STREAMING) {
+    await sendMessageStreaming(msg, historyToSend);
+  } else {
+    await sendMessageNonStreaming(msg, historyToSend);
+  }
+
+  inputEl.disabled = false;
+  inputEl.focus();
 });
 </script>
+
+<style>
+/* Typing indicator animation */
+.typing-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 0;
+}
+.typing-indicator span {
+  width: 8px;
+  height: 8px;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  border-radius: 50%;
+  animation: bounce 1.4s ease-in-out infinite;
+}
+.typing-indicator span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.typing-indicator span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+@keyframes bounce {
+  0%, 60%, 100% { transform: translateY(0); }
+  30% { transform: translateY(-8px); }
+}
+
+.streaming-message {
+  border-left: 3px solid #6366f1;
+}
+
+/* User message styling */
+.user-message {
+  word-wrap: break-word;
+  white-space: pre-wrap;
+}
+
+/* Tutor message styling */
+.tutor-message {
+  word-wrap: break-word;
+}
+
+/* Markdown content styling */
+.markdown-content {
+  line-height: 1.7;
+  color: #374151;
+}
+.markdown-content p {
+  margin-bottom: 0.75rem;
+}
+.markdown-content p:last-child {
+  margin-bottom: 0;
+}
+.markdown-content h1, .markdown-content h2, .markdown-content h3,
+.markdown-content h4, .markdown-content h5, .markdown-content h6 {
+  font-weight: 600;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+  color: #1f2937;
+}
+.markdown-content h1 { font-size: 1.5rem; }
+.markdown-content h2 { font-size: 1.25rem; }
+.markdown-content h3 { font-size: 1.125rem; }
+.markdown-content ul, .markdown-content ol {
+  margin-left: 1.5rem;
+  margin-bottom: 0.75rem;
+}
+.markdown-content ul { list-style-type: disc; }
+.markdown-content ol { list-style-type: decimal; }
+.markdown-content li {
+  margin-bottom: 0.25rem;
+}
+.markdown-content code {
+  background-color: #f3f4f6;
+  padding: 0.125rem 0.5rem;
+  border-radius: 0.375rem;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Menlo', 'Monaco', 'Courier New', monospace;
+  font-size: 0.875em;
+  color: #6366f1;
+}
+.markdown-content pre {
+  background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
+  color: #e5e7eb;
+  padding: 1rem;
+  border-radius: 0.75rem;
+  overflow-x: auto;
+  margin-bottom: 0.75rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+.markdown-content pre code {
+  background-color: transparent;
+  padding: 0;
+  color: inherit;
+}
+.markdown-content blockquote {
+  border-left: 4px solid #6366f1;
+  padding-left: 1rem;
+  margin-left: 0;
+  margin-bottom: 0.75rem;
+  color: #6b7280;
+  font-style: italic;
+  background: #f9fafb;
+  padding: 0.75rem 1rem;
+  border-radius: 0 0.5rem 0.5rem 0;
+}
+.markdown-content a {
+  color: #4f46e5;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.markdown-content a:hover {
+  color: #4338ca;
+}
+.markdown-content table {
+  border-collapse: collapse;
+  width: 100%;
+  margin-bottom: 0.75rem;
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+.markdown-content th, .markdown-content td {
+  border: 1px solid #e5e7eb;
+  padding: 0.625rem 0.75rem;
+  text-align: left;
+}
+.markdown-content th {
+  background: linear-gradient(135deg, #f9fafb, #f3f4f6);
+  font-weight: 600;
+  color: #374151;
+}
+.markdown-content hr {
+  border: none;
+  border-top: 2px solid #e5e7eb;
+  margin: 1.5rem 0;
+}
+.markdown-content strong {
+  font-weight: 600;
+  color: #1f2937;
+}
+.markdown-content em {
+  font-style: italic;
+}
+
+/* Mermaid diagram styling */
+.mermaid-container {
+  margin: 1rem 0;
+  overflow-x: auto;
+}
+.mermaid {
+  background-color: #fff;
+  padding: 1.5rem;
+  border-radius: 0.75rem;
+  border: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+.mermaid svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Edit button styling */
+.edit-btn {
+  opacity: 0;
+  transition: all 0.2s ease;
+}
+.w-full:hover .edit-btn {
+  opacity: 1;
+}
+.edit-container {
+  width: 100%;
+  max-width: 80%;
+}
+.edit-input {
+  min-width: 200px;
+}
+
+/* Export buttons styling */
+.export-buttons {
+  opacity: 0;
+  transition: all 0.2s ease;
+}
+.w-full:hover .export-buttons {
+  opacity: 1;
+}
+.export-md-btn:hover,
+.export-docx-btn:hover {
+  transform: scale(1.1);
+}
+
+/* KaTeX styling adjustments */
+.katex-display {
+  margin: 1rem 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+</style>
 {% endblock %}

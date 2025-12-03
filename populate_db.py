@@ -2,6 +2,7 @@
 Script para poblar la base de datos PostgreSQL con datos ficticios de estudiantes, materias y matrículas.
 """
 import psycopg2
+from werkzeug.security import generate_password_hash
 
 PG_HOST = "localhost"
 PG_PORT = 5432
@@ -19,16 +20,16 @@ def populate_db():
     )
     cur = conn.cursor()
 
-    # Poblar tabla students
+    # Poblar tabla students (passwords are hashed for security)
     students = [
-        (1, 'Ana García', 'ana.garcia@email.com', 'ana123', 'Ingeniería Industrial', '3', 'es'),
-        (2, 'Luis Pérez', 'luis.perez@email.com', 'luis456', 'Derecho', '4', 'es'),
-        (3, 'María López', 'maria.lopez@email.com', 'maria789', 'Ingeniería Industrial', '2', 'es'),
+        (1, 'Ana García', 'ana.garcia@email.com', generate_password_hash('ana123'), 'Ingeniería Industrial', '3', 'es'),
+        (2, 'Luis Pérez', 'luis.perez@email.com', generate_password_hash('luis456'), 'Derecho', '4', 'es'),
+        (3, 'María López', 'maria.lopez@email.com', generate_password_hash('maria789'), 'Ingeniería Industrial', '2', 'es'),
     ]
     cur.executemany("""
         INSERT INTO students (id, name, email, password, career, grade, language)
         VALUES (%s, %s, %s, %s, %s, %s, %s)
-        ON CONFLICT (id) DO NOTHING;
+        ON CONFLICT (id) DO UPDATE SET password = EXCLUDED.password;
     """, students)
 
     # Poblar tabla subjects (insertar o actualizar)

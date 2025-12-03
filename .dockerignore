@@ -1,0 +1,50 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv
+venv/
+ENV/
+env/
+.eggs/
+*.egg-info/
+*.egg
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Documentation (keep README.md for pyproject.toml)
+*.md
+!README.md
+!requirements.txt
+
+# Docker (keep entrypoint script)
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+!docker-entrypoint.sh
+
+# Local data
+qdrant_data/
+*.pptx
+*.pdf
+
+# Misc
+.DS_Store
+*.log
+.env.local
+.env.*.local

@@ -1,6 +1,53 @@
-version: '3.8'
-
 services:
+  # ===========================================
+  # Flask Application (IntelliTutor)
+  # ===========================================
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.app
+    container_name: intellitutor_app
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      # Database configuration
+      PG_HOST: db
+      PG_PORT: 5432
+      PG_DB: tutor_db
+      PG_USER: tutor_user
+      PG_PASSWORD: tutor_pass
+      # Flask configuration
+      SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
+      FLASK_ENV: production
+      # Admin emails (comma-separated)
+      ADMIN_EMAILS: ${ADMIN_EMAILS:-admin@example.com}
+      # OpenAI API key (optional, for OpenAI backend)
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      # Ollama URL (runs on host machine, use host.docker.internal for macOS/Windows)
+      OLLAMA_URL: ${OLLAMA_URL:-http://host.docker.internal:11434}
+      # Qdrant configuration
+      QDRANT_URL: http://qdrant:6333
+      QDRANT_COLLECTION: ${QDRANT_COLLECTION:-tutor_demo}
+    depends_on:
+      db:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - intellitutor_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # ===========================================
+  # PostgreSQL Database
+  # ===========================================
   db:
     image: postgres:16
     container_name: tutor_postgres
@@ -13,10 +60,22 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - intellitutor_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tutor_user -d tutor_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
+  # ===========================================
+  # PGAdmin (Database Management UI)
+  # ===========================================
   pgadmin:
     image: dpage/pgadmin4
     container_name: pgadmin
+    restart: unless-stopped
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@admin.com
       PGADMIN_DEFAULT_PASSWORD: admin
@@ -24,7 +83,14 @@ services:
       - "5050:80"
     depends_on:
       - db
+    networks:
+      - intellitutor_network
+    profiles:
+      - tools  # Only starts with: docker compose --profile tools up
 
+  # ===========================================
+  # Qdrant Vector Database
+  # ===========================================
   qdrant:
     image: qdrant/qdrant:latest
     container_name: qdrant
@@ -34,6 +100,18 @@ services:
       - "6334:6334"  # gRPC
     volumes:
       - ./qdrant_data:/qdrant/storage
+    networks:
+      - intellitutor_network
 
+# ===========================================
+# Networks
+# ===========================================
+networks:
+  intellitutor_network:
+    driver: bridge
+
+# ===========================================
+# Volumes
+# ===========================================
 volumes:
   postgres_data:

@@ -66,6 +66,13 @@ CREATE TABLE IF NOT EXISTS chat_metrics (
     latency_ms INTEGER,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Performance indexes for frequently queried columns
+CREATE INDEX IF NOT EXISTS idx_students_email ON students(email);
+CREATE INDEX IF NOT EXISTS idx_enrollments_student_id ON enrollments(student_id);
+CREATE INDEX IF NOT EXISTS idx_enrollments_subject_id ON enrollments(subject_id);
+CREATE INDEX IF NOT EXISTS idx_chat_metrics_user_id ON chat_metrics(user_id);
+CREATE INDEX IF NOT EXISTS idx_chat_metrics_created_at ON chat_metrics(created_at DESC);
 """
 
 def init_db():
